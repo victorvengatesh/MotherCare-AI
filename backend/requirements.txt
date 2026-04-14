@@ -1,0 +1,11 @@
+fastapi==0.109.2
+uvicorn==0.27.1
+python-multipart==0.0.9
+pydantic==2.6.1
+pydantic-settings==2.1.0
+python-dotenv==1.0.1
+Pillow==10.2.0
+python-magic==0.4.27; sys_platform != 'win32'
+python-magic-bin==0.4.14; sys_platform == 'win32'
+torch --index-url https://download.pytorch.org/whl/cpu
+torchvision --index-url https://download.pytorch.org/whl/cpu

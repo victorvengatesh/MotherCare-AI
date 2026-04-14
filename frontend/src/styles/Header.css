@@ -1,0 +1,49 @@
+.app-header {
+  background-color: var(--white);
+  padding: 1rem 1.5rem;
+  box-shadow: var(--shadow-sm);
+  border-bottom: 1px solid #f1f5f9;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-content {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.02em;
+}
+
+.logo-icon {
+  font-size: 1.75rem;
+  color: var(--primary-color);
+  background-color: var(--primary-light);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+}
+
+.tagline {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}

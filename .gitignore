@@ -1,0 +1,40 @@
+# Root .gitignore
+# Ignore Node.js and Python artifacts
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# Backend
+backend/__pycache__/
+backend/*.pyc
+backend/.venv/
+backend/venv/
+backend/.env
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# AI / Model
+model/__pycache__/
+model/experiments/.ipynb_checkpoints/
+
+# Data
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/samples/*
+!data/samples/.gitkeep
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+
+# Misc
+.DS_Store
+Thumbs.db

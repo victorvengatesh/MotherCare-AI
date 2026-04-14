@@ -1,0 +1,100 @@
+[
+  {
+    "symptoms": "I have a red rash on my hand and it is itching",
+    "condition": "Possible skin allergy or irritation",
+    "urgency": "Low to Moderate",
+    "advice": "Avoid scratching. Use mild, fragrance-free cleansers. If you suspect an allergic reaction, identify and remove the potential trigger.",
+    "timestamp": "2026-04-13T22:31:48.761572"
+  },
+  {
+    "symptoms": "My hand has a rash that is itching and redness",
+    "condition": "Possible skin allergy or irritation",
+    "urgency": "Low to Moderate",
+    "advice": "Avoid scratching. Use mild, fragrance-free cleansers. If you suspect an allergic reaction, identify and remove the potential trigger.",
+    "timestamp": "2026-04-13T22:31:48.779139"
+  },
+  {
+    "symptoms": "I burned my finger on a hot stove",
+    "condition": "Possible minor burn",
+    "urgency": "Moderate",
+    "advice": "Cool the area with clean, running water. Avoid applying oil, toothpaste, or home remedies. Seek care if blistering is extensive.",
+    "timestamp": "2026-04-13T22:31:48.801097"
+  },
+  {
+    "symptoms": "Persistent high fever and headache",
+    "condition": "Possible infection or worsening skin condition",
+    "urgency": "High",
+    "advice": "Keep the area clean. Monitor for increasing fever or spreading redness. Please seek medical evaluation soon. Caution: Detected signs like fever which may indicate a more serious condition.",
+    "timestamp": "2026-04-14T11:52:32.953909"
+  },
+  {
+    "symptoms": "fever",
+    "condition": "Possible infection or worsening skin condition",
+    "urgency": "High",
+    "advice": "Keep the area clean. Monitor for increasing fever or spreading redness. Please seek medical evaluation soon. Caution: Detected signs like fever which may indicate a more serious condition.",
+    "timestamp": "2026-04-14T11:52:56.446596"
+  },
+  {
+    "symptoms": "fever",
+    "condition": "Possible infection or worsening skin condition",
+    "urgency": "High",
+    "advice": "Keep the area clean. Monitor for increasing fever or spreading redness. Please seek medical evaluation soon. Caution: Detected signs like fever which may indicate a more serious condition.",
+    "timestamp": "2026-04-14T11:53:01.625705"
+  },
+  {
+    "symptoms": "fever",
+    "condition": "Possible infection or worsening skin condition",
+    "urgency": "High",
+    "advice": "Keep the area clean. Monitor for increasing fever or spreading redness. Please seek medical evaluation soon. Caution: Detected signs like fever which may indicate a more serious condition.",
+    "timestamp": "2026-04-14T11:53:15.511357"
+  },
+  {
+    "symptoms": "I have a severe headache and persistent high fever since yesterday",
+    "condition": "Possible infection or worsening skin condition",
+    "urgency": "High",
+    "advice": "Keep the area clean. Monitor for increasing fever or spreading redness. Please seek medical evaluation soon. Caution: Detected signs like fever which may indicate a more serious condition.",
+    "timestamp": "2026-04-14T11:53:37.233347"
+  },
+  {
+    "symptoms": "I have a severe headache and persistent high fever since yesterday",
+    "condition": "Possible infection or worsening skin condition",
+    "urgency": "High",
+    "advice": "Keep the area clean. Monitor for increasing fever or spreading redness. Please seek medical evaluation soon. Caution: Detected signs like fever which may indicate a more serious condition.",
+    "timestamp": "2026-04-14T11:53:42.400627"
+  },
+  {
+    "symptoms": "I have a severe headache and persistent high fever since yesterday  I have heavy fever among 2 days",
+    "condition": "Possible infection or worsening skin condition",
+    "urgency": "High",
+    "advice": "Keep the area clean. Monitor for increasing fever or spreading redness. Please seek medical evaluation soon. Caution: Detected signs like fever which may indicate a more serious condition.",
+    "timestamp": "2026-04-14T11:57:31.538212"
+  },
+  {
+    "symptoms": "I have a severe headache and persistent high fever since yesterday   \u0b8e\u0ba9\u0b95\u0bcd\u0b95\u0bc1 \u0bb0\u0bc6\u0ba3\u0bcd\u0b9f\u0bc1 \u0ba8\u0bbe\u0bb3\u0bcd \u0bb0\u0bca\u0bae\u0bcd\u0baa \u0b95\u0bc8\u0baf\u0bbf\u0bb2 \u0b85\u0bb0\u0bbf\u0baa\u0bcd\u0baa\u0bbe \u0b87\u0bb0\u0bc1\u0b95\u0bcd\u0b95\u0bc1",
+    "condition": "Possible infection or worsening skin condition",
+    "urgency": "High",
+    "advice": "Keep the area clean. Monitor for increasing fever or spreading redness. Please seek medical evaluation soon. Caution: Detected signs like fever which may indicate a more serious condition.",
+    "timestamp": "2026-04-14T11:59:18.983640"
+  },
+  {
+    "symptoms": "I have a severe headache and persistent high fever since yesterday   \u0b8e\u0ba9\u0b95\u0bcd\u0b95\u0bc1 \u0bb0\u0bc6\u0ba3\u0bcd\u0b9f\u0bc1 \u0ba8\u0bbe\u0bb3\u0bcd \u0bb0\u0bca\u0bae\u0bcd\u0baa \u0b95\u0bc8\u0baf\u0bbf\u0bb2 \u0b85\u0bb0\u0bbf\u0baa\u0bcd\u0baa\u0bbe \u0b87\u0bb0\u0bc1\u0b95\u0bcd\u0b95\u0bc1",
+    "condition": "Possible infection or worsening skin condition",
+    "urgency": "High",
+    "advice": "Keep the area clean. Monitor for increasing fever or spreading redness. Please seek medical evaluation soon. Caution: Detected signs like fever which may indicate a more serious condition.",
+    "timestamp": "2026-04-14T11:59:23.763641"
+  },
+  {
+    "symptoms": "\u0b8e\u0ba9\u0b95\u0bcd\u0b95\u0bc1 \u0bb0\u0bca\u0bae\u0bcd\u0baa \u0b95\u0bbe\u0baf\u0bcd\u0b9a\u0bcd\u0b9a\u0bb2\u0bbe \u0b87\u0bb0\u0bc1\u0b95\u0bcd\u0b95\u0bc1 \u0bb0\u0bc6\u0ba3\u0bcd\u0b9f\u0bc1 \u0ba8\u0bbe\u0bb3\u0bbe \u0b95\u0ba3\u0bcd\u0ba3\u0bc6\u0bb2\u0bcd\u0bb2\u0bbe\u0bae\u0bcd \u0bb0\u0bca\u0bae\u0bcd\u0baa \u0b9a\u0bbf\u0bb5\u0ba8\u0bcd\u0ba4\u0bc1 \u0b87\u0bb0\u0bc1\u0b95\u0bcd\u0b95\u0bc1 \u0b89\u0b9f\u0bae\u0bcd\u0baa\u0bc1 \u0bb9\u0bc0\u0b9f\u0bcd \u0b85\u0ba4\u0bbf\u0b95\u0bae\u0bbe \u0b87\u0bb0\u0bc1\u0b95\u0bcd\u0b95\u0bc1",
+    "condition": "Unclear skin-related condition",
+    "urgency": "Low to Moderate",
+    "advice": "Keep a close eye on the area. If symptoms persist or worsen, please consult a healthcare professional.",
+    "timestamp": "2026-04-14T12:00:11.015660"
+  },
+  {
+    "symptoms": "Red itchy rash",
+    "condition": "Possible skin allergy or irritation",
+    "urgency": "Low to Moderate",
+    "advice": "Avoid scratching. Use mild, fragrance-free cleansers. If you suspect an allergic reaction, identify and remove the potential trigger.",
+    "timestamp": "2026-04-14T12:13:49.629455"
+  }
+]

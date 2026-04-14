@@ -1,0 +1,19 @@
+{
+  "categories": [
+    {
+      "id": "skin_irritation",
+      "name": "Skin Irritation",
+      "default_urgency": "Low to Moderate"
+    },
+    {
+      "id": "allergic_reaction",
+      "name": "Allergic Reaction",
+      "default_urgency": "Moderate"
+    },
+    {
+      "id": "infection_bacterial",
+      "name": "Bacterial Infection",
+      "default_urgency": "Moderate to High"
+    }
+  ]
+}
