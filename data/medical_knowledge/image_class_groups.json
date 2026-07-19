@@ -1,0 +1,6 @@
+{
+  "burn": "burns_and_injuries",
+  "wound": "wounds_and_bleeding",
+  "skin_allergy": "skin_conditions",
+  "other": "unclear_condition"
+}

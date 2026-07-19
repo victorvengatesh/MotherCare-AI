@@ -1,0 +1,24 @@
+{
+  "emergency_symptoms": [
+    "chest_pain",
+    "breathing_difficulty",
+    "severe_bleeding",
+    "fainting",
+    "confusion",
+    "difficulty_breathing",
+    "unconscious",
+    "seizure",
+    "wheezing_severe",
+    "chest_tightness"
+  ],
+  "escalation_symptoms": [
+    "high_fever",
+    "severe_pain",
+    "spreading_redness",
+    "persistent_vomiting",
+    "severe_dehydration",
+    "yellow_eyes",
+    "yellow_skin",
+    "persistent_high_fever"
+  ]
+}

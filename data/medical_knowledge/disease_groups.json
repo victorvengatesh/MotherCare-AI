@@ -1,0 +1,58 @@
+{
+  "skin_conditions": {
+    "label": "Possible skin allergy or irritation",
+    "urgency": "Low to Moderate"
+  },
+  "burns_and_injuries": {
+    "label": "Possible minor burn or heat injury",
+    "urgency": "Moderate"
+  },
+  "wounds_and_bleeding": {
+    "label": "Possible wound or skin injury",
+    "urgency": "Moderate"
+  },
+  "infection_related": {
+    "label": "Possible infection or worsening condition",
+    "urgency": "Moderate to High"
+  },
+  "respiratory_conditions": {
+    "label": "Possible respiratory issue",
+    "urgency": "Moderate"
+  },
+  "digestive_conditions": {
+    "label": "Possible digestive issue",
+    "urgency": "Moderate"
+  },
+  "fever_general_illness": {
+    "label": "Possible fever-related illness",
+    "urgency": "Moderate"
+  },
+  "dehydration_weakness": {
+    "label": "Possible dehydration or fatigue",
+    "urgency": "Moderate"
+  },
+  "urgent_red_flags": {
+    "label": "Possible urgent or emergency condition",
+    "urgency": "High"
+  },
+  "unclear_condition": {
+    "label": "Unclear condition requiring evaluation",
+    "urgency": "Low to Moderate"
+  },
+  "asthma_respiratory_distress": {
+    "label": "Possible asthma or breathing distress",
+    "urgency": "High"
+  },
+  "jaundice_liver_issues": {
+    "label": "Possible jaundice or liver-related condition",
+    "urgency": "Moderate to High"
+  },
+  "viral_rashes_measles": {
+    "label": "Possible viral illness with rash (e.g., Measles)",
+    "urgency": "Moderate to High"
+  },
+  "hfmd_pediatric": {
+    "label": "Possible Hand, Foot, and Mouth Disease (HFMD)",
+    "urgency": "Moderate"
+  }
+}

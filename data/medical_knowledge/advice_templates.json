@@ -1,0 +1,52 @@
+{
+  "skin_conditions": {
+    "Low to Moderate": "Avoid scratching the area. Use mild, fragrance-free cleansers. If redness spreads or pain increases, consult a healthcare professional.",
+    "Moderate": "Avoid scratching. You may apply a cool compress for relief. Monitor for any signs of spreading or pus."
+  },
+  "burns_and_injuries": {
+    "Moderate": "Cool the area with clean, running water for 10-20 minutes. Avoid applying oil, toothpaste, or home remedies. Seek care if blistering is extensive.",
+    "Moderate to High": "Cool the area immediately. Do not break any blisters. Seek medical evaluation as soon as possible."
+  },
+  "wounds_and_bleeding": {
+    "Moderate": "Clean the wound with mild soap and water. Apply pressure if bleeding. Seek medical care if the wound is deep or won't stop bleeding.",
+    "High": "Apply firm pressure to stop bleeding. Elevate the injured area. Seek immediate medical attention."
+  },
+  "infection_related": {
+    "Moderate to High": "Keep the area clean. Monitor for increasing fever or spreading redness. Please seek medical evaluation soon.",
+    "High": "Seek immediate medical evaluation for suspected serious infection."
+  },
+  "respiratory_conditions": {
+    "Moderate": "Rest and stay hydrated. Monitor your breathing and temperature. Seek care if you have difficulty breathing or a high fever.",
+    "High": "Seek immediate medical attention for respiratory distress."
+  },
+  "digestive_conditions": {
+    "Moderate": "Stay hydrated with small sips of water or oral rehydration salts. Avoid heavy meals. Seek care if symptoms like vomiting or diarrhea persist.",
+    "Moderate to High": "Monitor for signs of severe dehydration. Avoid solid food until vomiting stops. Seek medical care soon."
+  },
+  "fever_general_illness": {
+    "Moderate": "Rest, drink plenty of fluids, and monitor temperature. You may use over-the-counter fever reducers as directed. Seek care if fever is very high or persistent.",
+    "Moderate to High": "High fever detected. Monitor for confusion or lethargy. Seek medical evaluation."
+  },
+  "dehydration_weakness": {
+    "Moderate": "Drink water or electrolytes slowly. Rest in a cool place. Seek care if you cannot keep fluids down or if weakness persists.",
+    "Moderate to High": "Severe weakness or dehydration suspected. Please seek medical evaluation soon."
+  },
+  "urgent_red_flags": {
+    "High": "Detected critical symptoms. Please seek immediate medical attention at the nearest emergency department or call emergency services."
+  },
+  "unclear_condition": {
+    "Low to Moderate": "Keep a close eye on your symptoms. If they persist or worsen, please consult a healthcare professional for a proper evaluation."
+  },
+  "asthma_respiratory_distress": {
+    "High": "Severe breathing distress suspected. If you have a prescribed inhaler, use it as directed. Seek immediate emergency medical attention."
+  },
+  "jaundice_liver_issues": {
+    "Moderate to High": "Yellowing of eyes or skin requires prompt medical evaluation of liver function. Avoid self-medication and seek a doctor's consultation."
+  },
+  "viral_rashes_measles": {
+    "Moderate to High": "High fever with specific rash patterns may indicate a contagious viral illness. Maintain isolation and seek medical evaluation for a formal diagnosis."
+  },
+  "hfmd_pediatric": {
+    "Moderate": "Mouth sores and rashes on hands/feet are typical of HFMD. Ensure hydration and keep the child isolated to prevent spread. Consult a pediatrician."
+  }
+}

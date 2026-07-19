@@ -1,0 +1,19 @@
+{
+  "english": [
+    "(\\d+|one|two|three|four|five|six|seven|eight|nine|ten)\\s*(day|week|month)s?",
+    "for\\s*(\\d+|one|two|three|four|five|six|seven)\\s*(day|week|month)s?",
+    "since\\s*(yesterday|last\\s*week|last\\s*month)",
+    "from\\s*(yesterday|last\\s*week|last\\s*month)",
+    "last\\s*(day|week|month)"
+  ],
+  "tamil": [
+    "இரு நாள்",
+    "இரண்டு நாள்",
+    "ஒரு நாள்",
+    "நேற்று முதல்",
+    "ஒரு வாரம்",
+    "மூன்று நாள்",
+    "பல நாள்",
+    "சில நாள்"
+  ]
+}

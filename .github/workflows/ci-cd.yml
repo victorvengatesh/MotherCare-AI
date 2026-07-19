@@ -1,0 +1,332 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ──────────────────────────────────────────────────────────
+  # Backend Testing
+  # ──────────────────────────────────────────────────────────
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r backend/requirements.txt pytest pytest-cov
+    
+    - name: Run tests
+      working-directory: ./backend
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        MC_SECRET_KEY: test-secret-key
+      run: |
+        pytest tests/ -v --cov=app --cov-report=xml
+    
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./backend/coverage.xml
+        flags: backend
+
+  # ──────────────────────────────────────────────────────────
+  # Backend Linting & Security
+  # ──────────────────────────────────────────────────────────
+  backend-lint:
+    name: Backend Linting & Security
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black pylint bandit
+    
+    - name: Run Flake8
+      run: flake8 backend/app --count --statistics --show-source
+    
+    - name: Run Black check
+      run: black --check backend/app
+    
+    - name: Run Bandit (security check)
+      run: bandit -r backend/app -f json -o backend/bandit-report.json || true
+
+  # ──────────────────────────────────────────────────────────
+  # Frontend Testing
+  # ──────────────────────────────────────────────────────────
+  frontend-test:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+    
+    - name: Run linter
+      working-directory: ./frontend
+      run: npm run lint || true
+    
+    - name: Run tests
+      working-directory: ./frontend
+      run: npm test || true
+    
+    - name: Build frontend
+      working-directory: ./frontend
+      run: npm run build
+
+  # ──────────────────────────────────────────────────────────
+  # Build Docker Images
+  # ──────────────────────────────────────────────────────────
+  build-backend:
+    name: Build Backend Image
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Log in to Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v4
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend
+        tags: |
+          type=ref,event=branch
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha
+    
+    - name: Build and push backend image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./backend
+        push: ${{ github.ref == 'refs/heads/main' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  build-frontend:
+    name: Build Frontend Image
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Log in to Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v4
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend
+        tags: |
+          type=ref,event=branch
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha
+    
+    - name: Build and push frontend image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./frontend
+        push: ${{ github.ref == 'refs/heads/main' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # ──────────────────────────────────────────────────────────
+  # Integration Tests (Backend + Frontend)
+  # ──────────────────────────────────────────────────────────
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      backend:
+        image: localhost:5000/mothercare-backend:test
+        options: >-
+          --health-cmd="curl -f http://localhost:8000/health || exit 1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        ports:
+          - 8000:8000
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MC_SECRET_KEY: test-secret-key
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+    
+    - name: Run integration tests
+      working-directory: ./frontend
+      run: npm run test:integration || true
+      env:
+        VITE_API_URL: http://localhost:8000
+
+  # ──────────────────────────────────────────────────────────
+  # Security Scanning
+  # ──────────────────────────────────────────────────────────
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # ──────────────────────────────────────────────────────────
+  # Deployment (Main branch only)
+  # ──────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [backend-test, backend-lint, frontend-test, build-backend, build-frontend]
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy to production
+      run: |
+        echo "Deployment workflow"
+        echo "In production, this would:"
+        echo "1. Pull latest Docker images"
+        echo "2. Update Kubernetes/Docker Compose"
+        echo "3. Run health checks"
+        echo "4. Notify team on Slack"
+        echo ""
+        echo "Configure specific deployment steps for your infrastructure:"
+        echo "- AWS ECS/Fargate"
+        echo "- Google Cloud Run"
+        echo "- Kubernetes"
+        echo "- DigitalOcean App Platform"
+    
+    # Example AWS deployment (uncomment and configure):
+    # - name: Configure AWS credentials
+    #   uses: aws-actions/configure-aws-credentials@v2
+    #   with:
+    #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+    #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    #     aws-region: us-east-1
+    # 
+    # - name: Update ECS task definition
+    #   run: |
+    #     aws ecs update-service --cluster mothercare-prod \
+    #       --service mothercare-backend \
+    #       --force-new-deployment
+
+  # ──────────────────────────────────────────────────────────
+  # Notifications
+  # ──────────────────────────────────────────────────────────
+  notify:
+    name: Notify Team
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [backend-test, frontend-test]
+    
+    steps:
+    - name: Determine job status
+      id: status
+      run: |
+        if [ "${{ needs.backend-test.result }}" = "failure" ] || [ "${{ needs.frontend-test.result }}" = "failure" ]; then
+          echo "status=failure" >> $GITHUB_OUTPUT
+        else
+          echo "status=success" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Send Slack notification
+      uses: 8398a7/action-slack@v3
+      if: always()
+      with:
+        status: ${{ steps.status.outputs.status }}
+        text: 'MotherCare AI CI/CD Pipeline ${{ steps.status.outputs.status }}'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        fields: repo,message,commit,author

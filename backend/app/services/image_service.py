@@ -1,6 +1,10 @@
 import sys
 import os
 from PIL import Image
+import logging
+
+# Setup logging
+logger = logging.getLogger("image-service")
 
 # Add project root to path to allow importing from 'model'
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -8,31 +12,39 @@ if PROJECT_ROOT not in sys.path:
     sys.path.append(PROJECT_ROOT)
 
 try:
+    # Importing the new functional wrapper for the class-based classifier
     from model.predict import predict_image
     ML_SUPPORTED = True
 except ImportError:
-    print("Warning: ML prediction dependencies (torch/torchvision) not found. Falling back to basic analysis.")
+    logger.warning("ML prediction dependencies (torch/torchvision) not found. Falling back to basic analysis.")
     ML_SUPPORTED = False
 
 def analyze_image(image_path: str) -> dict:
+    """
+    Service layer for image analysis. Integrates ML prediction and metadata extraction.
+    """
     result = {
-        "image_status": "Image received successfully",
-        "image_size": "Unknown",
-        "ml_analysis": None
+        "status": "success",
+        "metadata": {
+            "image_size": "Unknown",
+            "format": "Unknown"
+        },
+        "ml_result": None
     }
     
     try:
-        # Basic Image Analysis
-        img = Image.open(image_path)
-        width, height = img.size
-        result["image_size"] = f"{width}x{height}"
+        # 1. Metadata extraction
+        with Image.open(image_path) as img:
+            width, height = img.size
+            result["metadata"]["image_size"] = f"{width}x{height}"
+            result["metadata"]["format"] = img.format
 
-        # ML Prediction
+        # 2. ML Prediction
         if ML_SUPPORTED:
-            ml_result = predict_image(image_path)
-            result["ml_analysis"] = ml_result
+            ml_prediction = predict_image(image_path)
+            result["ml_result"] = ml_prediction
         else:
-            result["ml_analysis"] = {
+            result["ml_result"] = {
                 "status": "unavailable",
                 "message": "Model dependencies not installed on server."
             }
@@ -40,8 +52,10 @@ def analyze_image(image_path: str) -> dict:
         return result
         
     except Exception as e:
+        logger.error(f"Error processing image {image_path}: {e}")
         return {
-            "image_status": f"Error processing image: {str(e)}",
-            "image_size": "Unknown",
-            "ml_analysis": None
+            "status": "error",
+            "message": f"Failed to process image: {str(e)}",
+            "metadata": None,
+            "ml_result": None
         }

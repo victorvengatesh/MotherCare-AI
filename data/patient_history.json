@@ -96,5 +96,33 @@
     "urgency": "Low to Moderate",
     "advice": "Avoid scratching. Use mild, fragrance-free cleansers. If you suspect an allergic reaction, identify and remove the potential trigger.",
     "timestamp": "2026-04-14T12:13:49.629455"
+  },
+  {
+    "symptoms": "i have digestive problem in a two days",
+    "condition": "Unclear skin-related condition",
+    "urgency": "Low to Moderate",
+    "advice": "Keep a close eye on the area. If symptoms persist or worsen, please consult a healthcare professional.",
+    "timestamp": "2026-04-15T23:13:08.120525"
+  },
+  {
+    "symptoms": " i have races on my lower body\r\n",
+    "condition": "Unclear skin-related condition",
+    "urgency": "Low to Moderate",
+    "advice": "Keep a close eye on the area. If symptoms persist or worsen, please consult a healthcare professional.",
+    "timestamp": "2026-04-15T23:13:39.516168"
+  },
+  {
+    "symptoms": "i have fever on two days\r\n",
+    "condition": "Possible infection or worsening skin condition",
+    "urgency": "High",
+    "advice": "Keep the area clean. Monitor for increasing fever or spreading redness. Please seek medical evaluation soon. Caution: Detected signs like fever which may indicate a more serious condition.",
+    "timestamp": "2026-04-15T23:13:56.666550"
+  },
+  {
+    "symptoms": "i have feaver in two two days",
+    "condition": "Unclear condition requiring evaluation",
+    "urgency": "Low to Moderate",
+    "advice": "Keep a close eye on your symptoms. If they persist or worsen, please consult a healthcare professional for a proper evaluation.",
+    "timestamp": "2026-04-15T23:40:48.063620"
   }
 ]

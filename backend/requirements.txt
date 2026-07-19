@@ -7,5 +7,15 @@ python-dotenv==1.0.1
 Pillow==10.2.0
 python-magic==0.4.27; sys_platform != 'win32'
 python-magic-bin==0.4.14; sys_platform == 'win32'
-torch --index-url https://download.pytorch.org/whl/cpu
-torchvision --index-url https://download.pytorch.org/whl/cpu
+torch>=2.0.0 --index-url https://download.pytorch.org/whl/cpu
+torchvision>=0.15.0 --index-url https://download.pytorch.org/whl/cpu
+passlib>=1.7.4
+PyJWT==2.8.0
+sqlalchemy==2.0.20
+rapidfuzz==3.6.1
+google-genai>=0.3.0
+loguru==0.7.2
+slowapi==0.1.9
+PyMuPDF==1.23.8
+chromadb==0.4.24
+sentence-transformers==3.0.0

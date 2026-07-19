@@ -3,12 +3,17 @@ import shutil
 import uuid
 import logging
 
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status, Depends
 
 from app.services.symptom_service import analyze_symptoms
 from app.services.image_service import analyze_image
 from app.services.response_service import build_final_response
 from app.services.history_service import check_similarity, add_to_history
+from app.services.auth_service import get_current_user
+from app.services.gemini_service import enhance_response
+from app.db.database import get_db
+from app.db import models
+from sqlalchemy.orm import Session
 
 router = APIRouter()
 logger = logging.getLogger("mothercare-analyze")
@@ -38,6 +43,8 @@ def validate_file(upload_file: UploadFile) -> None:
 async def analyze(
     symptoms: str = Form(...),
     file: UploadFile | None = File(None),
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     if not symptoms.strip():
         raise HTTPException(
@@ -87,7 +94,7 @@ async def analyze(
             await file.close()
 
     history_note = None
-    if check_similarity(symptoms):
+    if check_similarity(db, current_user.id, symptoms):
         history_note = "You have reported similar symptoms before."
 
     response = build_final_response(
@@ -96,11 +103,20 @@ async def analyze(
         history_note=history_note
     )
 
-    # Save current query to history
-    add_to_history(symptoms, symptom_result)
+    # Enhance advice with Gemini if API key is configured
+    gemini_text = enhance_response(symptoms, symptom_result, image_result)
+    if gemini_text:
+        response["gemini_response"] = gemini_text
 
-    return {
-        "status": "success",
-        "data": response,
-        "meta": meta,
-    }
+    # Save current query to history
+    add_to_history(db, current_user.id, symptoms, symptom_result)
+
+    # Fold meta into data for StandardResponse
+    response["meta"] = meta
+
+    from app.schemas.response import StandardResponse
+    return StandardResponse(
+        status="success",
+        data=response,
+        message="Analysis completed"
+    )
