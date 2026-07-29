@@ -12,12 +12,21 @@ import logging
 
 logger = logging.getLogger("risk-engine")
 
-class XGBoostModelStub:
-    def predict(self, features):
-        return 0.5
+import joblib
+from pathlib import Path
+import numpy as np
 
-xgb_model = XGBoostModelStub()
-
+# Load ML models
+models_path = Path(__file__).resolve().parent.parent / "ml" / "risk_model.pkl"
+try:
+    models = joblib.load(models_path)
+    ml_pe = models["pe"]
+    ml_gd = models["gd"]
+    ml_an = models["an"]
+    logger.info("Loaded ML risk models successfully.")
+except Exception as e:
+    logger.warning("Failed to load ML models. Falling back to rule-based scoring: %s", e)
+    ml_pe = ml_gd = ml_an = None
 
 class MaternalRiskEngine:
 
@@ -49,45 +58,78 @@ class MaternalRiskEngine:
 
         # ── Pre-eclampsia ────────────────────────────────────────────────────
         pe_score = 0.0
+        if ml_pe is not None:
+            features = np.array([[bp_sys, bp_dia, glucose, hb, bmi, week]])
+            pe_score = float(ml_pe.predict_proba(features)[0][1])
+            if pe_score > 0.5:
+                insights.append(f"ML Model detected elevated Pre-eclampsia risk based on multidimensional markers.")
+        else:
+            if bp_sys >= self.BP_HIGH:
+                pe_score += 0.65
+            elif bp_sys >= self.BP_ELEVATED:
+                pe_score += 0.30
+            if bp_dia >= 90:
+                pe_score += 0.20
+            if bmi >= self.BMI_OBESE:
+                pe_score += 0.10
+            if week >= 20:
+                pe_score += 0.05
+        
+        # Clinical Rule Overrides / Insights
         if bp_sys >= self.BP_HIGH:
-            pe_score += 0.65
-            insights.append("Systolic BP ≥ 140 mmHg is the primary driver for pre-eclampsia risk.")
+            insights.append("Systolic BP ≥ 140 mmHg is a primary driver for pre-eclampsia risk.")
         elif bp_sys >= self.BP_ELEVATED:
-            pe_score += 0.30
             insights.append("Elevated systolic BP (130–139 mmHg) detected — monitor closely.")
         if bp_dia >= 90:
-            pe_score += 0.20
             insights.append("Diastolic BP ≥ 90 mmHg adds to cardiovascular risk.")
-        if bmi >= self.BMI_OBESE:
-            pe_score += 0.10
-        if week >= 20:
-            pe_score += 0.05  # Risk increases in 2nd/3rd trimester
-        risks["pre_eclampsia"] = round(min(pe_score, 0.99), 2)
+
+        risks["pre_eclampsia"] = round(min(max(pe_score, 0.0), 0.99), 2)
 
         # ── Gestational Diabetes ─────────────────────────────────────────────
         gd_score = 0.0
+        if ml_gd is not None:
+            features = np.array([[bp_sys, bp_dia, glucose, hb, bmi, week]])
+            gd_score = float(ml_gd.predict_proba(features)[0][1])
+            if gd_score > 0.5:
+                insights.append(f"ML Model detected elevated Gestational Diabetes risk.")
+        else:
+            if glucose >= self.GLUCOSE_HIGH:
+                gd_score += 0.65
+            elif glucose >= self.GLUCOSE_BORDER:
+                gd_score += 0.30
+            if bmi >= self.BMI_OBESE:
+                gd_score += 0.15
+            elif bmi >= self.BMI_OVERWEIGHT:
+                gd_score += 0.05
+        
         if glucose >= self.GLUCOSE_HIGH:
-            gd_score += 0.65
             insights.append("Fasting glucose ≥ 140 mg/dL strongly indicates gestational diabetes risk.")
         elif glucose >= self.GLUCOSE_BORDER:
-            gd_score += 0.30
             insights.append("Borderline glucose (110–139 mg/dL) — dietary control recommended.")
         if bmi >= self.BMI_OBESE:
-            gd_score += 0.15
             insights.append("BMI ≥ 30 is an independent risk factor for gestational diabetes.")
-        elif bmi >= self.BMI_OVERWEIGHT:
-            gd_score += 0.05
-        risks["gestational_diabetes"] = round(min(gd_score, 0.99), 2)
+
+        risks["gestational_diabetes"] = round(min(max(gd_score, 0.0), 0.99), 2)
 
         # ── Anaemia ──────────────────────────────────────────────────────────
         an_score = 0.0
+        if ml_an is not None:
+            features = np.array([[bp_sys, bp_dia, glucose, hb, bmi, week]])
+            an_score = float(ml_an.predict_proba(features)[0][1])
+            if an_score > 0.5:
+                insights.append(f"ML Model detected elevated Anaemia risk.")
+        else:
+            if hb < self.HB_LOW:
+                an_score += 0.75
+            elif hb < self.HB_BORDER:
+                an_score += 0.35
+                
         if hb < self.HB_LOW:
-            an_score += 0.75
             insights.append(f"Haemoglobin {hb} g/dL is below 11 — moderate to severe anaemia likely.")
         elif hb < self.HB_BORDER:
-            an_score += 0.35
             insights.append(f"Haemoglobin {hb} g/dL is below normal — mild anaemia, consider iron supplementation.")
-        risks["anemia"] = round(min(an_score, 0.99), 2)
+
+        risks["anemia"] = round(min(max(an_score, 0.0), 0.99), 2)
 
         # ── Overall risk level ───────────────────────────────────────────────
         max_risk = max(risks.values(), default=0)

@@ -15,7 +15,13 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.routes.analyze import router as analyze_router
 from app.routes.auth import router as auth_router
 from app.routes.ai import router as ai_router
-from app.db.database import engine
+from app.routes.doctor import router as doctor_router
+from app.routes.admin import router as admin_router
+from app.routes.appointments import router as appointments_router
+from app.routes.reminders import router as reminders_router
+from app.routes.reports import router as reports_router
+from app.routes.notifications import router as notifications_router
+from app.db.database import engine, get_db
 from app.db import models
 from app.utils.logger import logger
 from app.schemas.response import StandardResponse, ErrorResponse
@@ -71,7 +77,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     logger.error(f"HTTPException: {exc.status_code} on {request.url.path}")
     return JSONResponse(
         status_code=exc.status_code,
-        content=ErrorResponse(status="error", message=str(exc.detail)).model_dump(exclude_none=True),
+        content=ErrorResponse(status="error", message=str(exc.detail), status_code=exc.status_code).model_dump(exclude_none=True),
     )
 
 @app.exception_handler(RequestValidationError)
@@ -92,7 +98,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content=ErrorResponse(status="error", message="Data validation failed").model_dump(exclude_none=True),
+        content=ErrorResponse(status="error", message="Data validation failed", status_code=status.HTTP_422_UNPROCESSABLE_ENTITY).model_dump(exclude_none=True),
     )
 
 @app.exception_handler(Exception)
@@ -103,7 +109,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content=ErrorResponse(status="error", message="An unexpected server error occurred.").model_dump(exclude_none=True),
+        content=ErrorResponse(status="error", message="An unexpected server error occurred.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR).model_dump(exclude_none=True),
     )
 
 @app.get("/", tags=["Root"], response_model=StandardResponse[dict])
@@ -132,3 +138,40 @@ def health_check():
 app.include_router(analyze_router, tags=["Analysis"])
 app.include_router(auth_router, tags=["Authentication"])
 app.include_router(ai_router, tags=["AI"])
+app.include_router(doctor_router, tags=["Doctor"])
+app.include_router(admin_router, tags=["Admin"])
+app.include_router(appointments_router)
+app.include_router(reminders_router)
+app.include_router(reports_router)
+app.include_router(notifications_router)
+
+
+@app.get("/readiness", tags=["Health"], response_model=StandardResponse[dict])
+def readiness_check():
+    """Readiness probe: verifies DB is reachable and critical config is set."""
+    checks = {}
+
+    # DB check
+    try:
+        db_gen = get_db()
+        db = next(db_gen)
+        db.execute(models.User.__table__.select().limit(1))
+        checks["database"] = "ok"
+    except Exception as e:
+        checks["database"] = f"error: {type(e).__name__}"
+    finally:
+        try:
+            next(db_gen)
+        except StopIteration:
+            pass
+
+    # Env checks
+    required_env = ["GEMINI_API_KEY", "MC_SECRET_KEY"]
+    for env_var in required_env:
+        checks[env_var] = "ok" if os.getenv(env_var) else "MISSING"
+
+    all_ok = all(v == "ok" for v in checks.values())
+    return StandardResponse(
+        status="success" if all_ok else "degraded",
+        data={"ready": all_ok, "checks": checks},
+    )

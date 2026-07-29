@@ -20,6 +20,43 @@ from app.db import models
 
 client = TestClient(app)
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from app.db.database import Base, get_db
+
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test_p0_stability.db"
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+@pytest.fixture(autouse=True, scope="function")
+def test_db_setup():
+    Base.metadata.create_all(bind=engine)
+    db = TestingSessionLocal()
+    try:
+        # Seed test user
+        user = models.User(
+            id="test-user-123",
+            username="test-user-123",
+            email="test@mothercare.ai",
+            hashed_password="hashed_password",
+            role="patient"
+        )
+        db.add(user)
+        db.commit()
+        
+        # Override dependency
+        def override_get_db():
+            try:
+                yield db
+            finally:
+                pass
+        app.dependency_overrides[get_db] = override_get_db
+        yield db
+    finally:
+        db.close()
+        Base.metadata.drop_all(bind=engine)
+        app.dependency_overrides.clear()
+
 
 # ──────────────────────────────────────────────────────────────────────────
 # 1. Circuit Breaker State Machine Tests
@@ -106,7 +143,7 @@ class TestCircuitBreakerStateMachine:
         assert "response" in result
         assert "status" in result
         assert result["status"] == "fallback_active"
-        assert "friendly message" in result["response"].lower() or "temporarily" in result["response"].lower()
+        assert "friendly message" in result["response"].lower() or "temporary" in result["response"].lower()
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -255,9 +292,14 @@ class TestTimeoutHandling:
         token = create_access_token(data={"sub": "test-user-123"})
         return token
     
-    @patch('app.utils.ai_wrapper._sync_call', side_effect=TimeoutError)
-    def test_chat_timeout_handled_gracefully(self, mock_timeout, auth_token):
+    @patch('concurrent.futures.ThreadPoolExecutor.submit')
+    def test_chat_timeout_handled_gracefully(self, mock_submit, auth_token):
         """Chat should return fallback on timeout."""
+        import concurrent.futures
+        mock_future = MagicMock()
+        mock_future.result.side_effect = concurrent.futures.TimeoutError()
+        mock_submit.return_value = mock_future
+
         response = client.post(
             "/ai/chat",
             json={"query": "Is this baby safe?", "language": "English"},

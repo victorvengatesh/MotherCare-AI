@@ -32,13 +32,7 @@ SPECIALIST_PROFILES: Dict[str, str] = {
     ),
 }
 
-# Keywords that force emergency routing regardless of CMO decision
-EMERGENCY_KEYWORDS = [
-    "bleeding", "severe pain", "no movement", "chest pain",
-    "vision loss", "seizure", "unconscious", "can't breathe",
-    "heavy bleed", "fainting", "stroke",
-]
-
+from app.services.redflag_service import screen_symptoms
 
 def _get_client():
     """Returns an initialised google-genai client or None."""
@@ -53,7 +47,8 @@ def _select_agent(query: str, twin_data: dict, client) -> str:
     """CMO Agent: decides which specialist handles this query."""
     query_lower = query.lower()
     # Hard-coded emergency override — safety first
-    if any(kw in query_lower for kw in EMERGENCY_KEYWORDS):
+    safety_result = screen_symptoms(query)
+    if safety_result["requires_immediate_care"]:
         return "emergency"
 
     if client is None:
@@ -101,11 +96,14 @@ Respond ONLY with valid JSON in this exact format (no markdown):
         return "obgyn"
 
 
+from sqlalchemy.orm import Session
+
 def run_consultation(
     query: str,
     user_id: str,
     twin_data: dict,
     language: str = "English",
+    db: Session = None,
 ) -> dict:
     """
     Full orchestration pipeline:
@@ -115,8 +113,34 @@ def run_consultation(
     """
     client = _get_client()
 
+    # 0. Safety Layer
+    safety_result = screen_symptoms(query)
+    if safety_result["requires_immediate_care"]:
+        return {
+            "agent": "emergency",
+            "agent_label": "Emergency Specialist",
+            "response": f"🚨 EMERGENCY ALERT: {safety_result['reason']}\n\n{safety_result['recommended_action']}\n\nThis is an automated safety screening, not a diagnosis. Please get help immediately.",
+            "rag_context_used": False,
+            "language": language,
+            "safety_flags": safety_result["detected_red_flags"]
+        }
+
     # 1. RAG — pull relevant context
-    rag_context = get_relevant_context(query, user_id)
+    close_db = False
+    if db is None:
+        from app.db.database import SessionLocal
+        db = SessionLocal()
+        close_db = True
+
+    rag_context = ""
+    citations = []
+    try:
+        rag_context, citations = get_relevant_context(db, query, user_id)
+    except Exception as e:
+        logger.error(f"Error retrieving RAG context: {e}")
+    finally:
+        if close_db:
+            db.close()
 
     # 2. CMO — select specialist
     selected_agent = _select_agent(query, twin_data, client)
@@ -129,7 +153,7 @@ def run_consultation(
     )
 
     context_block = (
-        f"\n\n--- Relevant Context ---\n{rag_context}" if rag_context else ""
+        f"\n\n--- Relevant Context ---\n{rag_context}" if rag_context and rag_context != "insufficient approved information" else ""
     )
 
     twin_block = (
@@ -160,6 +184,7 @@ Patient question: {query}"""
         "agent": selected_agent,
         "agent_label": selected_agent.replace("_", " ").title(),
         "response": response_text,
-        "rag_context_used": bool(rag_context),
+        "rag_context_used": bool(citations),
+        "citations": citations,
         "language": language,
     }

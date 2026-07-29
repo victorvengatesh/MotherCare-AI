@@ -40,8 +40,11 @@ const RiskBar = ({ label, score }) => {
   );
 };
 
-const RiskDashboard = ({ language }) => {
+const RiskDashboard = () => {
   const [twin, setTwin]       = useState(null);
+  const [trends, setTrends]   = useState([]);
+  const [timeline, setTimeline] = useState([]);
+  const [instructions, setInstructions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
   const [error, setError]     = useState(null);
@@ -49,18 +52,16 @@ const RiskDashboard = ({ language }) => {
   const [editMode, setEditMode] = useState(false);
   const [saved, setSaved]     = useState(false);
 
-  const fetchTwin = async () => {
+  const fetchTwinAndTrends = async () => {
     setLoading(true);
     setError(null);
     try {
-      // Add timeout protection
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Request timeout')), 15000)
       );
       
       const fetchPromise = api.get('/ai/twin');
       const res = await Promise.race([fetchPromise, timeoutPromise]);
-      
       const twinData = res.data?.data;
       if (!twinData) {
         throw new Error('Invalid response from server');
@@ -77,25 +78,41 @@ const RiskDashboard = ({ language }) => {
         hemoglobin:    twinData.hemoglobin     ?? '',
         bmi:           twinData.bmi            ?? '',
       });
+
+      // Fetch patient trends
+      const trendsRes = await api.get('/ai/trends');
+      setTrends(trendsRes.data?.data?.trends || []);
+      setTimeline(trendsRes.data?.data?.alert_timeline || []);
+
+      // Fetch instructions
+      const instRes = await api.get('/ai/instructions');
+      setInstructions(instRes.data?.data?.instructions || []);
     } catch (e) {
       let errorMsg = 'Failed to load Digital Twin data. ';
       if (e.message?.includes('timeout') || e.isTimeout) {
-        errorMsg += 'Request timed out. Please check your connection.';
-      } else if (e.isServiceUnavailable) {
-        errorMsg += 'Service temporarily unavailable. Please try again later.';
-      } else if (e.isNetworkError) {
-        errorMsg += 'Network error. Please check your connection.';
+        errorMsg += 'Request timed out.';
       } else {
         errorMsg += 'Please try again.';
       }
       setError(errorMsg);
-      console.error('Fetch twin error:', e);
+      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchTwin(); }, []);
+  const handleMarkRead = async (instId) => {
+    try {
+      await api.post(`/ai/instruction/${instId}/read`);
+      setInstructions(prev => prev.map(inst =>
+        inst.id === instId ? { ...inst, read_at: new Date().toISOString() } : inst
+      ));
+    } catch (e) {
+      console.error("Failed to mark instruction as read:", e);
+    }
+  };
+
+  useEffect(() => { fetchTwinAndTrends(); }, []);
 
   const handleSave = async () => {
     setSaving(true);
@@ -103,14 +120,12 @@ const RiskDashboard = ({ language }) => {
     const payload = {};
     Object.entries(form).forEach(([k, v]) => { if (v !== '') payload[k] = parseFloat(v) || v; });
     try {
-      // Add timeout protection
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Request timeout')), 15000)
       );
       
       const savePromise = api.put('/ai/twin', payload);
       const res = await Promise.race([savePromise, timeoutPromise]);
-      
       const updatedData = res.data?.data;
       if (!updatedData) {
         throw new Error('Invalid response from server');
@@ -120,17 +135,14 @@ const RiskDashboard = ({ language }) => {
       setSaved(true);
       setEditMode(false);
       setTimeout(() => setSaved(false), 3000);
+      
+      // Refresh trends
+      const trendsRes = await api.get('/ai/trends');
+      setTrends(trendsRes.data?.data?.trends || []);
+      setTimeline(trendsRes.data?.data?.alert_timeline || []);
     } catch (e) {
-      let errorMsg = 'Save failed. ';
-      if (e.message?.includes('timeout') || e.isTimeout) {
-        errorMsg += 'Request timed out.';
-      } else if (e.isNetworkError) {
-        errorMsg += 'Network error.';
-      } else {
-        errorMsg += 'Please try again.';
-      }
-      setError(errorMsg);
-      console.error('Save error:', e);
+      setError('Save failed. Please try again.');
+      console.error(e);
     } finally {
       setSaving(false);
     }
@@ -159,7 +171,7 @@ const RiskDashboard = ({ language }) => {
 
   if (error) return (
     <div style={{ maxWidth: 600, margin: '3rem auto', padding: '1.5rem', backgroundColor: '#fef2f2', borderRadius: 12, color: '#dc2626', textAlign: 'center' }}>
-      ❌ {error} <button onClick={fetchTwin} style={{ marginLeft: 8, color: '#247576', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Retry</button>
+      ❌ {error} <button onClick={fetchTwinAndTrends} style={{ marginLeft: 8, color: '#247576', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Retry</button>
     </div>
   );
 
@@ -169,13 +181,13 @@ const RiskDashboard = ({ language }) => {
   const overallColor = RISK_COLOR(overall === 'High' ? 0.8 : overall === 'Moderate' ? 0.4 : 0.1);
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '1.5rem' }}>
+    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '1.5rem', fontFamily: 'Inter, sans-serif' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
         <div>
-          <h2 style={{ margin: 0, color: '#1e293b', fontWeight: 800 }}>🧬 Digital Twin — Risk Analytics</h2>
+          <h2 style={{ margin: 0, color: '#1e293b', fontWeight: 800 }}>🧬 Digital Twin — Maternal Analytics</h2>
           <p style={{ margin: '0.25rem 0 0', color: '#64748b', fontSize: '0.85rem' }}>
-            Week {twin?.current_week ?? '?'} · Last updated: {twin?.last_updated ? new Date(twin.last_updated).toLocaleString() : '—'}
+            User: <strong>{twin?.username}</strong> · Gestational Week {twin?.current_week ?? '?'} · Last updated: {twin?.last_updated ? new Date(twin.last_updated).toLocaleString() : '—'}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -199,14 +211,118 @@ const RiskDashboard = ({ language }) => {
         </div>
       </div>
 
+      {/* Awaiting clinical review banner */}
+      {twin?.awaiting_review && (
+        <div style={{
+          backgroundColor: '#fff7ed', border: '1px solid #ffedd5',
+          borderRadius: 12, padding: '1rem 1.5rem', marginBottom: '1.5rem',
+          display: 'flex', alignItems: 'center', gap: '1rem'
+        }}>
+          <span style={{ fontSize: '1.5rem' }}>⏳</span>
+          <div>
+            <div style={{ fontWeight: 800, color: '#c2410c' }}>Case Awaiting Clinician Review</div>
+            <div style={{ fontSize: '0.8rem', color: '#ea580c' }}>
+              Your latest biomarkers or symptom reports have triggered a clinical review request. A qualified doctor is reviewing your case now.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Overall risk badge */}
       <div style={{ backgroundColor: overallColor.bg, border: `1px solid ${overallColor.border}`, borderRadius: 12, padding: '1rem 1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
         <span style={{ fontSize: '2rem' }}>{overall === 'High' ? '🔴' : overall === 'Moderate' ? '🟡' : '🟢'}</span>
         <div>
-          <div style={{ fontWeight: 800, fontSize: '1.1rem', color: overallColor.text }}>Overall Risk: {overall}</div>
-          <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Based on current biomarker readings</div>
+          <div style={{ fontWeight: 800, fontSize: '1.1rem', color: overallColor.text }}>Overall Status: {overall} Risk</div>
+          <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Computed from ML models and vital thresholds</div>
         </div>
       </div>
+
+      {/* Clinical Care Instructions Panel */}
+      {instructions.length > 0 && (
+        <div style={{
+          backgroundColor: '#fff',
+          border: '1px solid #e2e8f0',
+          borderRadius: 12,
+          padding: '1.5rem',
+          marginBottom: '1.5rem',
+          boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
+        }}>
+          <h3 style={{ margin: '0 0 1rem', color: '#1e293b', fontSize: '1.1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span>🩺</span> Doctor's Care Guidelines ({instructions.filter(i => !i.read_at).length} Unread)
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {instructions.map((inst) => {
+              const isHigh = inst.priority === 'High';
+              const isRead = !!inst.read_at;
+              return (
+                <div key={inst.id} style={{
+                  padding: '1rem',
+                  borderRadius: 8,
+                  border: isHigh ? '1px solid #fca5a5' : '1px solid #cbd5e1',
+                  backgroundColor: isRead ? '#f8fafc' : (isHigh ? '#fff5f5' : '#f0fdfa'),
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '1rem'
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                      <span style={{
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        padding: '0.15rem 0.4rem',
+                        borderRadius: 4,
+                        backgroundColor: isHigh ? '#ef4444' : '#0f766e',
+                        color: '#fff'
+                      }}>
+                        {inst.priority}
+                      </span>
+                      <strong style={{ fontSize: '0.85rem', color: '#334155' }}>
+                        From: Dr. {inst.doctor_name}
+                      </strong>
+                      <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                        {new Date(inst.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p style={{
+                      margin: 0,
+                      fontSize: '0.9rem',
+                      color: isRead ? '#64748b' : '#1e293b',
+                      textDecoration: isRead ? 'line-through' : 'none',
+                      lineHeight: 1.4
+                    }}>
+                      {inst.message}
+                    </p>
+                  </div>
+                  {!isRead && (
+                    <button
+                      onClick={() => handleMarkRead(inst.id)}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        backgroundColor: '#247576',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 6,
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      ✓ Mark as Read
+                    </button>
+                  )}
+                  {isRead && (
+                    <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                      ✓ Read {new Date(inst.read_at).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Vitals grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -238,7 +354,7 @@ const RiskDashboard = ({ language }) => {
       )}
 
       {/* Risk scores */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
         <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '1.5rem' }}>
           <h3 style={{ margin: '0 0 1rem', color: '#1e293b', fontSize: '1rem' }}>📊 Risk Scores</h3>
           <RiskBar label="Pre-eclampsia"          score={risks.pre_eclampsia        ?? 0} />
@@ -246,7 +362,7 @@ const RiskDashboard = ({ language }) => {
           <RiskBar label="Anaemia"                score={risks.anemia               ?? 0} />
         </div>
         <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '1.5rem' }}>
-          <h3 style={{ margin: '0 0 1rem', color: '#1e293b', fontSize: '1rem' }}>💡 Clinical Insights</h3>
+          <h3 style={{ margin: '0 0 1rem', color: '#1e293b', fontSize: '1rem' }}>💡 Diagnostic Insights</h3>
           {insights.length === 0
             ? <p style={{ color: '#64748b', fontSize: '0.85rem' }}>No insights available yet.</p>
             : insights.map((ins, i) => (
@@ -259,10 +375,53 @@ const RiskDashboard = ({ language }) => {
         </div>
       </div>
 
-      <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.72rem', marginTop: '1.5rem' }}>
-        Risk scores are indicative only. Always consult a qualified healthcare professional.
-      </p>
+      {/* Vitals and Risk History Trends (For Patients) */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1.5rem' }}>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '1.5rem' }}>
+          <h3 style={{ margin: '0 0 1rem', color: '#1e293b', fontSize: '1rem' }}>📈 Screening Trend Logs</h3>
+          {trends.length === 0 ? (
+            <p style={{ color: '#64748b', fontSize: '0.85rem' }}>No screening entries found.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {trends.map((t, i) => (
+                <div key={i} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #f1f5f9', backgroundColor: '#fafafb', fontSize: '0.85rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', marginBottom: '0.25rem' }}>
+                    <span>{new Date(t.timestamp).toLocaleDateString()}</span>
+                    <strong style={{ color: t.urgency === 'High' ? '#dc2626' : '#16a34a' }}>{t.urgency} Urgency</strong>
+                  </div>
+                  <p style={{ margin: 0, color: '#334155' }}><strong>Symptoms Reported:</strong> {t.symptoms}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
+        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '1.5rem' }}>
+          <h3 style={{ margin: '0 0 1rem', color: '#1e293b', fontSize: '1rem' }}>🔔 Maternal Alert Status Timeline</h3>
+          {timeline.length === 0 ? (
+            <p style={{ color: '#64748b', fontSize: '0.85rem' }}>All systems normal. No active or historical risk alerts raised.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {timeline.map((item, i) => (
+                <div key={i} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#fff', fontSize: '0.8rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                    <strong>{item.alert_source.toUpperCase()} Alert ({item.risk_level})</strong>
+                    <span>{new Date(item.created_at).toLocaleDateString()}</span>
+                  </div>
+                  <p style={{ margin: '0 0 0.5rem', color: '#475569' }}>{item.warning_signs}</p>
+                  <div>
+                    Status: <strong style={{ color: item.status === 'resolved' ? '#16a34a' : '#ea580c' }}>{item.status.toUpperCase()}</strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.72rem', marginTop: '1.5rem' }}>
+        <strong>Medical Disclaimer:</strong> MotherCare AI is designed for informational purposes and decision support only. It is not a clinical diagnosis platform. Always seek professional advice from your doctor or local health coordinator for actual medical treatment or diagnosis.
+      </p>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );

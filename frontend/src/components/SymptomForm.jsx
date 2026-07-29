@@ -2,15 +2,15 @@ import React, { useState, useEffect } from 'react';
 
 const SymptomForm = ({ symptoms, onChange, language }) => {
   const [isListening, setIsListening] = useState(false);
-  const [supported, setSupported] = useState(true);
-  const [recognition, setRecognition] = useState(null);
+  const isSpeechSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  const recognitionRef = React.useRef(null);
 
   useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setSupported(false);
+    if (!isSpeechSupported) {
       return;
     }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     const rec = new SpeechRecognition();
     rec.continuous = true;
@@ -39,15 +39,15 @@ const SymptomForm = ({ symptoms, onChange, language }) => {
       setIsListening(false);
     };
 
-    setRecognition(rec);
-  }, [symptoms, onChange]);
+    recognitionRef.current = rec;
+  }, [symptoms, onChange, language, isSpeechSupported]);
 
   const toggleListening = () => {
     if (isListening) {
-      recognition.stop();
+      if (recognitionRef.current) recognitionRef.current.stop();
     } else {
       setIsListening(true);
-      recognition.start();
+      if (recognitionRef.current) recognitionRef.current.start();
     }
   };
 
@@ -55,7 +55,7 @@ const SymptomForm = ({ symptoms, onChange, language }) => {
     <div className="form-group">
       <div className="voice-controls">
         <label htmlFor="symptoms"><strong>{language === 'ta' ? 'உங்கள் அறிகுறிகளை விவரிக்கவும்:' : 'Describe your symptoms:'}</strong></label>
-        {supported ? (
+        {isSpeechSupported ? (
           <button 
             type="button"
             className={`voice-btn ${isListening ? 'listening' : ''}`}

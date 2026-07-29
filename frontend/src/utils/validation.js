@@ -271,7 +271,7 @@ export const sanitizeFileName = (fileName) => {
   
   // Remove path separators and suspicious characters
   return fileName
-    .replace(/[\/\\]/g, '')
+    .replace(/[/\\]/g, '')
     .replace(/[<>:"|?*]/g, '')
     .replace(/\s+/g, '_')
     .substring(0, 255);

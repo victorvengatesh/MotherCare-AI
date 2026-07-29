@@ -16,6 +16,7 @@ from app.services.auth_service import get_current_user
 from app.services.rag_service import process_pdf, index_patient_data
 from app.agents.orchestrator import run_consultation
 from app.services.risk_engine import MaternalRiskEngine
+from app.schemas.response import StandardResponse
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 logger = logging.getLogger("ai-routes")
@@ -106,6 +107,7 @@ async def chat(
         user_id=current_user.id,
         twin_data=twin_data,
         language=language,
+        db=db,
     )
 
     # Save to health records
@@ -219,6 +221,10 @@ def get_twin(
     # Compute fresh risk scores
     risks = risk_engine.predict_risks(twin_data)
 
+    # Process alerts based on vitals and ML risks
+    from app.services.alert_service import process_twin_alerts
+    process_twin_alerts(db, current_user.id, twin_data, risks)
+
     # Persist updated risk scores
     try:
         twin.risk_preeclampsia         = risks["risk_scores"]["pre_eclampsia"]
@@ -231,6 +237,14 @@ def get_twin(
         logger.exception("Failed to update twin risks: %s", e)
         raise HTTPException(status_code=500, detail="Database error updating twin risks.")
 
+    # Check for active alerts awaiting doctor review
+    active_alert = db.query(models.MaternalRiskAlert).filter(
+        models.MaternalRiskAlert.patient_id == current_user.id,
+        models.MaternalRiskAlert.status.in_(["new", "under_review", "escalated"])
+    ).first()
+    awaiting_review = active_alert is not None
+    review_status = active_alert.status if active_alert else None
+
     from app.schemas.response import StandardResponse
     return StandardResponse(
         status="success",
@@ -239,6 +253,8 @@ def get_twin(
             "risk_analysis": risks,
             "username": current_user.username,
             "language": current_user.language,
+            "awaiting_review": awaiting_review,
+            "review_status": review_status
         },
     )
 
@@ -266,8 +282,25 @@ def update_twin(
         raise HTTPException(status_code=500, detail="Database error updating twin.")
 
     risks = risk_engine.predict_risks(_twin_to_dict(twin))
+    
+    from app.services.alert_service import process_twin_alerts
+    process_twin_alerts(db, current_user.id, _twin_to_dict(twin), risks)
+    
+    # Check for active alerts awaiting doctor review
+    active_alert = db.query(models.MaternalRiskAlert).filter(
+        models.MaternalRiskAlert.patient_id == current_user.id,
+        models.MaternalRiskAlert.status.in_(["new", "under_review", "escalated"])
+    ).first()
+    awaiting_review = active_alert is not None
+    review_status = active_alert.status if active_alert else None
+    
     from app.schemas.response import StandardResponse
-    return StandardResponse(status="success", data={**_twin_to_dict(twin), "risk_analysis": risks})
+    return StandardResponse(status="success", data={
+        **_twin_to_dict(twin), 
+        "risk_analysis": risks,
+        "awaiting_review": awaiting_review,
+        "review_status": review_status
+    })
 
 
 @router.get("/records")
@@ -298,3 +331,125 @@ def get_records(
             for r in records
         ],
     )
+
+
+@router.get("/trends", response_model=StandardResponse[dict])
+def get_user_trends(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns historical screening and risk logs for the current patient.
+    """
+    history_entries = db.query(models.PatientHistory).filter(
+        models.PatientHistory.user_id == current_user.id
+    ).order_by(models.PatientHistory.timestamp.asc()).all()
+    
+    trends = []
+    for h in history_entries:
+        trends.append({
+            "timestamp": h.timestamp.isoformat(),
+            "symptoms": h.symptoms,
+            "condition": h.condition,
+            "urgency": h.urgency
+        })
+        
+    alerts = db.query(models.MaternalRiskAlert).filter(
+        models.MaternalRiskAlert.patient_id == current_user.id
+    ).order_by(models.MaternalRiskAlert.created_at.asc()).all()
+    
+    alert_timeline = []
+    for a in alerts:
+        alert_timeline.append({
+            "id": a.id,
+            "risk_level": a.risk_level,
+            "alert_source": a.alert_source,
+            "warning_signs": a.warning_signs,
+            "status": a.status,
+            "created_at": a.created_at.isoformat()
+        })
+        
+    return StandardResponse(
+        status="success",
+        data={
+            "trends": trends,
+            "alert_timeline": alert_timeline
+        }
+    )
+
+
+# ── Patient Care Instructions Messaging Endpoints ──────────────────────────────
+@router.get("/instructions", response_model=StandardResponse[dict])
+def get_patient_instructions(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Retrieves all active clinical instructions published for the current patient."""
+    now = datetime.utcnow()
+    
+    # Query active instructions that haven't expired
+    instructions = (
+        db.query(models.PatientInstruction)
+        .filter(
+            models.PatientInstruction.patient_id == current_user.id,
+            models.PatientInstruction.status == "active",
+            (models.PatientInstruction.expiry_date == None) | (models.PatientInstruction.expiry_date > now)
+        )
+        .order_by(models.PatientInstruction.created_at.desc())
+        .all()
+    )
+    
+    res = []
+    for inst in instructions:
+        # Perform safe python visibility check (SQLite JSON types store boolean as 'true' or 1 or true)
+        vis = inst.patient_visible
+        if isinstance(vis, str):
+            is_visible = vis.lower() in ("true", "1")
+        elif isinstance(vis, int):
+            is_visible = bool(vis)
+        else:
+            is_visible = bool(vis)
+            
+        if not is_visible:
+            continue
+
+        doctor = db.query(models.User).filter(models.User.id == inst.doctor_id).first()
+        res.append({
+            "id": inst.id,
+            "doctor_name": doctor.username if doctor else "Healthcare Provider",
+            "message": inst.message,
+            "priority": inst.priority,
+            "created_at": inst.created_at.isoformat(),
+            "read_at": inst.read_at.isoformat() if inst.read_at else None,
+            "expiry_date": inst.expiry_date.isoformat() if inst.expiry_date else None
+        })
+        
+    return StandardResponse(status="success", data={"instructions": res})
+
+
+@router.post("/instruction/{inst_id}/read", response_model=StandardResponse[dict])
+def mark_instruction_read(
+    inst_id: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Marks a patient instruction as read by the patient."""
+    inst = db.query(models.PatientInstruction).filter_by(id=inst_id, patient_id=current_user.id).first()
+    if not inst:
+        raise HTTPException(status_code=404, detail="Instruction not found or access denied")
+        
+    if not inst.read_at:
+        inst.read_at = datetime.utcnow()
+        db.commit()
+        
+        # Log Audit Trail
+        from app.services.alert_service import create_audit_event
+        create_audit_event(
+            db=db,
+            actor_id=current_user.id,
+            action="instruction_read",
+            target_id=inst.id
+        )
+        
+    return StandardResponse(status="success", message="Instruction marked as read")
+

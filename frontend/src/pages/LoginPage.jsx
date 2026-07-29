@@ -8,7 +8,7 @@ import {
 
 const LoginPage = ({ onLoginSuccess }) => {
   const [mode, setMode] = useState('login'); // 'login' | 'register'
-  const [form, setForm] = useState({ username: '', email: '', password: '', passwordConfirm: '' });
+  const [form, setForm] = useState({ username: '', email: '', password: '', passwordConfirm: '', role: 'patient' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
@@ -58,11 +58,11 @@ const LoginPage = ({ onLoginSuccess }) => {
         }
         
         setLoading(true);
-        await registerUser(validation.username, validation.email, form.password);
+        await registerUser(validation.username, validation.email, form.password, form.role);
         
         // Auto-login after successful registration
-        const token = await loginUser(validation.username, form.password);
-        onLoginSuccess(token, validation.username);
+        const loginData = await loginUser(validation.username, form.password);
+        onLoginSuccess(loginData.access_token, validation.username, loginData.user.role);
       } else {
         // Validate login
         const validation = validateLoginRequest(form.username, form.password);
@@ -75,8 +75,8 @@ const LoginPage = ({ onLoginSuccess }) => {
         }
         
         setLoading(true);
-        const token = await loginUser(validation.username, form.password);
-        onLoginSuccess(token, validation.username);
+        const loginData = await loginUser(validation.username, form.password);
+        onLoginSuccess(loginData.access_token, validation.username, loginData.user.role);
       }
     } catch (err) {
       setError(err.message || 'An error occurred. Please try again.');
@@ -276,6 +276,23 @@ const LoginPage = ({ onLoginSuccess }) => {
               {validationErrors.email && (
                 <div style={errorLabelStyle}>{validationErrors.email[0]}</div>
               )}
+            </div>
+          )}
+
+          {/* Role (register only) */}
+          {mode === 'register' && (
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={labelStyle}>Register as</label>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+                  <input type="radio" name="role" value="patient" checked={form.role === 'patient'} onChange={handleChange} />
+                  Patient
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+                  <input type="radio" name="role" value="doctor" checked={form.role === 'doctor'} onChange={handleChange} />
+                  Doctor
+                </label>
+              </div>
             </div>
           )}
 

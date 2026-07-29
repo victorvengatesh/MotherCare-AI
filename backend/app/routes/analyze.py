@@ -2,6 +2,8 @@ from pathlib import Path
 import shutil
 import uuid
 import logging
+import magic
+from PIL import Image, UnidentifiedImageError
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status, Depends
 
@@ -52,7 +54,50 @@ async def analyze(
             detail="Symptoms field cannot be empty.",
         )
 
-    symptom_result = analyze_symptoms(symptoms)
+    # 1. Preserve original text & run Multilingual NLP processing
+    from app.services.normalization_service import process_multilingual_input
+    nlp_res = process_multilingual_input(symptoms)
+    
+    lang = nlp_res["detected_language"]
+    normalized_text = nlp_res["normalized_text"]
+    extracted_symptoms = nlp_res["extracted_symptoms"]
+    uncertain_terms = nlp_res["uncertain_terms"]
+    requires_clinical_review = nlp_res["requires_clinical_review"]
+
+    # 2. Run deterministic red-flag rules
+    from app.services.redflag_service import screen_symptoms
+    redflag_res = screen_symptoms(symptoms)
+    
+    # Emergency overrides
+    critical_symptoms = ["bleeding", "reduced fetal movement", "difficulty breathing", "chest pain", "seizure", "blurry vision", "severe pain"]
+    is_critical_extracted = any(s in extracted_symptoms for s in critical_symptoms)
+    
+    requires_immediate_care = redflag_res["requires_immediate_care"] or is_critical_extracted
+    risk_level = "Emergency" if requires_immediate_care else redflag_res["risk_level"]
+    detected_red_flags = redflag_res["detected_red_flags"]
+    
+    if is_critical_extracted and "Emergency" not in risk_level:
+        risk_level = "Emergency"
+        requires_immediate_care = True
+        
+    for s in extracted_symptoms:
+        if s in critical_symptoms:
+            label = s.replace("_", " ").title()
+            if label not in detected_red_flags:
+                detected_red_flags.append(label)
+
+    # 3. Create persistent alerts when required
+    if requires_immediate_care:
+        from app.services.alert_service import create_maternal_alert
+        create_maternal_alert(
+            db=db,
+            patient_id=current_user.id,
+            risk_level=risk_level,
+            alert_source="deterministic",
+            warning_signs="; ".join(detected_red_flags)
+        )
+
+    # 4. Image Upload (ML prediction remains active)
     image_result = None
     meta = {"uploaded_file": None}
 
@@ -69,17 +114,31 @@ async def analyze(
 
             file_size_mb = saved_file_path.stat().st_size / (1024 * 1024)
             if file_size_mb > MAX_FILE_SIZE_MB:
-                saved_file_path.unlink(missing_ok=True)
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"File is too large. Maximum allowed size is {MAX_FILE_SIZE_MB} MB.",
+                )
+
+            mime_type = magic.from_file(str(saved_file_path), mime=True)
+            if not mime_type.startswith("image/"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid file content. Expected an image.",
+                )
+                
+            try:
+                with Image.open(saved_file_path) as img:
+                    img.verify()
+            except UnidentifiedImageError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Corrupted or invalid image file.",
                 )
 
             logger.info("File saved successfully: %s", saved_file_path.name)
             image_result = analyze_image(str(saved_file_path))
             meta = {
                 "uploaded_file": file.filename,
-                "stored_file": unique_filename,
                 "image_analysis": image_result,
             }
         except HTTPException:
@@ -92,31 +151,70 @@ async def analyze(
             )
         finally:
             await file.close()
+            saved_file_path.unlink(missing_ok=True)
 
+    # 5. Check Similarity
     history_note = None
     if check_similarity(db, current_user.id, symptoms):
         history_note = "You have reported similar symptoms before."
 
-    response = build_final_response(
-        symptom_result=symptom_result,
-        image_result=image_result,
-        history_note=history_note
-    )
+    # 6 & 7 & 8. RAG & Gemini Explanation with fallback protection
+    rag_context = "insufficient approved information"
+    citations = []
+    final_explanation = "No detailed AI explanation is available at this moment. Please follow the recommended actions and consult a medical professional."
+    if requires_immediate_care:
+        final_explanation = "CRITICAL WARNING: Emergency signs detected. Please seek immediate professional medical attention at the nearest emergency department."
 
-    # Enhance advice with Gemini if API key is configured
-    gemini_text = enhance_response(symptoms, symptom_result, image_result)
-    if gemini_text:
-        response["gemini_response"] = gemini_text
+    try:
+        from app.services.rag_service import get_relevant_context
+        rag_context, citations = get_relevant_context(db, symptoms, current_user.id)
 
-    # Save current query to history
-    add_to_history(db, current_user.id, symptoms, symptom_result)
+        from app.services.gemini_service import explain_with_rag, translate_response
+        raw_explanation = explain_with_rag(symptoms, extracted_symptoms, risk_level, rag_context)
+        final_explanation = translate_response(raw_explanation, lang)
+    except Exception as e:
+        logger.error("RAG or Gemini explanation pipeline failed: %s", e)
 
-    # Fold meta into data for StandardResponse
-    response["meta"] = meta
+    if requires_immediate_care:
+        if not final_explanation or "insufficient approved" in final_explanation.lower() or "no detailed ai explanation" in final_explanation.lower():
+            final_explanation = "CRITICAL WARNING: Emergency signs detected. Please seek immediate professional medical attention at the nearest emergency department."
+
+    # Save to SQL history log
+    add_to_history(db, current_user.id, symptoms, {"condition": "; ".join(extracted_symptoms) if extracted_symptoms else "Unclear", "urgency": risk_level, "advice": final_explanation})
+
+    # Prepare response payload
+    reason = "Deterministic red-flags detected." if requires_immediate_care else "Standard screening analysis."
+    recommended_action = "Seek immediate clinical care." if requires_immediate_care else "Standard care path. Monitor vitals."
+    
+    response_data = {
+        "original_text": symptoms,
+        "detected_language": lang,
+        "normalized_text": normalized_text,
+        "extracted_symptoms": extracted_symptoms,
+        "uncertain_terms": uncertain_terms,
+        "risk_level": risk_level,
+        "detected_red_flags": detected_red_flags,
+        "reason": reason,
+        "recommended_action": recommended_action,
+        "requires_immediate_care": requires_immediate_care,
+        "requires_clinical_review": requires_clinical_review,
+        "information_sources": citations,
+        "response_language": lang,
+        "explanation": final_explanation,
+        "limitations": "This decision support relies strictly on available local clinical guidelines and text matching.",
+        "disclaimer": "This is preliminary decision support, NOT clinical diagnosis. In emergencies, consult a qualified physician immediately.",
+        "history_note": history_note,
+        "meta": meta,
+        # Backward compatibility with ResultCard.jsx:
+        "condition": "; ".join(extracted_symptoms) if extracted_symptoms else "Unclear Symptoms",
+        "urgency": risk_level,
+        "advice": recommended_action,
+        "gemini_response": final_explanation
+    }
 
     from app.schemas.response import StandardResponse
     return StandardResponse(
         status="success",
-        data=response,
+        data=response_data,
         message="Analysis completed"
     )

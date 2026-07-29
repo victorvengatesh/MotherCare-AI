@@ -87,3 +87,93 @@ Write only the patient-facing message — no headers, no bullet points, just flo
     except Exception as e:
         logger.error("Gemini API call failed unexpectedly: %s", e)
         return None
+
+from typing import List
+
+def explain_with_rag(
+    symptoms: str,
+    extracted_symptoms: List[str],
+    risk_level: str,
+    rag_context: str
+) -> str:
+    """
+    Sends the symptoms and RAG clinical guideline context to Gemini to generate
+    evidence-grounded educational guidance. Enforces strict instruction that if
+    rag_context is 'insufficient approved information', the response must refuse
+    unsupported information.
+    """
+    client = _get_client()
+    if client is None:
+         return "No AI connection available. " + ("Please seek medical review." if risk_level == "Emergency" else "Please consult your care provider.")
+
+    if rag_context == "insufficient approved information":
+        return "Insufficient approved clinical information is available in the guidelines database to explain these symptoms. Please consult a qualified doctor for diagnosis."
+
+    prompt = f"""You are a compassionate medical care assistant for MotherCare AI.
+Explain the following maternal symptoms based ONLY on the provided clinical guideline context.
+Do not present any facts, treatments or diagnoses that are not supported by the context below.
+
+Patient Symptoms: "{symptoms}"
+Canonical Symptoms Identified: {extracted_symptoms}
+Assessed Risk Level: {risk_level}
+
+--- Approved Clinical Guideline Context ---
+{rag_context}
+
+--- Instructions ---
+1. Explain the symptoms clearly and empathetically in a few sentences.
+2. Ground your explanation strictly on the guideline context. Do not invent any medical facts.
+3. If the context does not contain enough information to explain the symptoms, reply exactly with: "insufficient approved information".
+4. Remind the patient of their recommended action (Assessed Risk Level: {risk_level}) and include a clear disclaimer that this is decision support and not a diagnosis.
+5. Respond directly as a patient-facing message. Do not include markdown headers or internal system details.
+"""
+
+    try:
+        from app.utils.ai_wrapper import call_ai_with_retry
+        text = call_ai_with_retry(
+            client=client,
+            model="gemini-2.5-flash",
+            contents=prompt,
+            agent_name="rag_explanation",
+            fallback_text="insufficient approved information"
+        )
+        return text.strip()
+    except Exception as e:
+        logger.error("Gemini RAG explanation call failed: %s", e)
+        return "insufficient approved information"
+
+def translate_response(text: str, target_language: str) -> str:
+    """
+    Translates a patient-facing clinical explanation into the target language (e.g. Tamil).
+    """
+    if not target_language or target_language.lower() in ("english", "en"):
+        return text
+        
+    client = _get_client()
+    if client is None:
+        return text
+
+    prompt = f"""You are a medical translator for MotherCare AI.
+Translate the following medical advice text into clear, readable {target_language}.
+Preserve all warnings, risk level indicators, and disclaimers exactly.
+Do not change or downgrade the severity of any medical alert.
+
+Text to translate:
+"{text}"
+
+Translation in {target_language}:"""
+
+    try:
+        from app.utils.ai_wrapper import call_ai_with_retry
+        translated = call_ai_with_retry(
+            client=client,
+            model="gemini-2.5-flash",
+            contents=prompt,
+            agent_name="translation",
+            fallback_text=text
+        )
+        return translated.strip()
+    except Exception as e:
+        logger.error("Translation call failed: %s", e)
+        return text
+

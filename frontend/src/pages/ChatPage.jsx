@@ -23,7 +23,6 @@ const ChatPage = ({ language, setLanguage }) => {
   const [input, setInput]       = useState('');
   const [loading, setLoading]   = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState(null);
   const bottomRef = useRef(null);
   const fileRef   = useRef(null);
 
@@ -119,13 +118,11 @@ const ChatPage = ({ language, setLanguage }) => {
     
     // Validate file type
     if (!file.name.toLowerCase().endsWith('.pdf')) {
-      setUploadResult({ success: false, error: 'Only PDF files are supported' });
       fileRef.current.value = '';
       return;
     }
     
     setUploading(true);
-    setUploadResult(null);
     const form = new FormData();
     form.append('file', file);
     
@@ -150,7 +147,6 @@ const ChatPage = ({ language, setLanguage }) => {
         throw new Error('Incomplete response from upload');
       }
       
-      setUploadResult({ success: true, filename: data.filename, summary: data.summary });
       setMessages((prev) => [
         ...prev,
         {
@@ -174,7 +170,6 @@ const ChatPage = ({ language, setLanguage }) => {
         errorMsg = err.message;
       }
       
-      setUploadResult({ success: false, error: errorMsg });
       setMessages((prev) => [
         ...prev,
         { role: 'bot', agent: 'emergency', text: `❌ Upload failed: ${errorMsg}` },

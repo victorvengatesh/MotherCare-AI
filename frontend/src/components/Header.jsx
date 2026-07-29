@@ -1,7 +1,9 @@
 import React from 'react';
 import '../styles/Header.css';
+import NotificationBell from './NotificationBell';
 
 const Header = ({ username, onLogout }) => {
+
   return (
     <header className="app-header">
       <div className="header-content">
@@ -15,6 +17,8 @@ const Header = ({ username, onLogout }) => {
               👤 {username}
             </p>
           )}
+          {username && <NotificationBell />}
+
           {onLogout && (
             <button
               onClick={onLogout}
