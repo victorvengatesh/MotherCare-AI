@@ -22,7 +22,10 @@ const ResultCard = ({ result, language }) => {
       AI Analysis Result. 
       Condition: ${result.condition}. 
       Urgency Level: ${result.urgency}. 
-      Recommended Actions: ${result.advice}.
+      ${result.gemini_response
+        ? `AI Explanation: ${result.gemini_response}`
+        : `Recommended Actions: ${result.advice}.`
+      }
     `;
 
     const utterance = new SpeechSynthesisUtterance(textToRead);
@@ -78,6 +81,23 @@ const ResultCard = ({ result, language }) => {
           <h3>{language === 'ta' ? 'பரிந்துரைக்கப்பட்ட நடவடிக்கைகள்' : 'Recommended Actions'}</h3>
           <div className="advice-text">{result.advice}</div>
         </div>
+
+        {result.gemini_response && (
+          <div className="result-item" style={{
+            backgroundColor: '#f0fdf4',
+            border: '1px solid #bbf7d0',
+            borderRadius: '10px',
+            padding: '1rem 1.25rem',
+          }}>
+            <h3 style={{ color: '#059669', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span>✨</span>
+              {language === 'ta' ? 'AI விரிவான விளக்கம்' : 'AI Detailed Explanation'}
+            </h3>
+            <div className="advice-text" style={{ color: '#065f46', lineHeight: '1.7' }}>
+              {result.gemini_response}
+            </div>
+          </div>
+        )}
 
         <button 
           onClick={handleSpeak}

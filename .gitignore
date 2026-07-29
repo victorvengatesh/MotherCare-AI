@@ -8,8 +8,8 @@ frontend/.env
 frontend/.env.local
 
 # Backend
-backend/__pycache__/
-backend/*.pyc
+**/__pycache__/
+**/*.pyc
 backend/.venv/
 backend/venv/
 backend/.env
@@ -38,3 +38,30 @@ data/samples/*
 # Misc
 .DS_Store
 Thumbs.db
+
+# Databases — never commit real patient data
+backend/*.db
+backend/**/*.db
+*.sqlite
+*.sqlite3
+
+# PDF summaries — sensitive, never commit
+backend/temp_pdfs/
+mc_summary_*.pdf
+*.pdf
+
+# Vector database — can contain patient text fragments
+backend/app/chroma_db/
+backend/**/*.chroma/
+
+# ML model files — may contain sensitive training patterns
+backend/**/*.pkl
+backend/**/*.joblib
+backend/**/*.h5
+
+# Temp uploads
+backend/uploads/*.pdf
+backend/uploads/*.png
+backend/uploads/*.jpg
+backend/uploads/*.jpeg
+

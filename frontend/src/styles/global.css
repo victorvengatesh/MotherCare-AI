@@ -174,3 +174,180 @@ input[type="file"] {
 .lang-btn:hover:not(.active) {
   background-color: rgba(0, 0, 0, 0.05);
 }
+
+
+/* ──── Error Boundary Styles ──── */
+.error-boundary-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  padding: 1.5rem;
+}
+
+.error-boundary-content {
+  background: var(--white);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-lg);
+  padding: 2rem;
+  max-width: 600px;
+  text-align: center;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.error-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  animation: bounce 1s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.error-boundary-content h2 {
+  color: var(--danger-color);
+  margin-bottom: 0.75rem;
+  font-size: 1.5rem;
+}
+
+.error-message {
+  color: var(--text-muted);
+  margin-bottom: 1.5rem;
+  line-height: 1.8;
+}
+
+.error-details {
+  background-color: var(--bg-app);
+  border-left: 4px solid var(--warning-color);
+  padding: 1rem;
+  margin: 1.5rem 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.error-details summary {
+  font-weight: 600;
+  color: var(--warning-color);
+  cursor: pointer;
+  user-select: none;
+}
+
+.error-details pre {
+  background-color: #1e293b;
+  color: #e2e8f0;
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.75rem;
+  margin-top: 1rem;
+  text-align: left;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.error-boundary-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 2rem;
+}
+
+.btn-reset, .btn-home {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: var(--transition);
+  cursor: pointer;
+  border: none;
+}
+
+.btn-reset {
+  background-color: var(--primary-color);
+  color: var(--white);
+}
+
+.btn-reset:hover {
+  background-color: var(--primary-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-home {
+  background-color: var(--secondary-color);
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
+}
+
+.btn-home:hover {
+  background-color: var(--primary-light);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* ──── API Error Toast Styles ──── */
+.api-error-toast {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  background-color: var(--danger-color);
+  color: var(--white);
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  max-width: 400px;
+  z-index: 9999;
+  animation: slideInRight 0.3s ease-out;
+}
+
+.api-error-toast.warning {
+  background-color: var(--warning-color);
+}
+
+.api-error-toast.info {
+  background-color: var(--primary-color);
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Service Unavailable Message */
+.service-unavailable-banner {
+  background-color: #fee2e2;
+  border: 1px solid var(--danger-color);
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 2rem;
+  color: #7f1d1d;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.service-unavailable-banner::before {
+  content: '⚠️';
+  font-size: 1.25rem;
+}
