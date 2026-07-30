@@ -58,6 +58,70 @@ async def analyze(
     from app.services.normalization_service import process_multilingual_input
     nlp_res = process_multilingual_input(symptoms)
     
+    # Intercept with stateful interview engine for guided consultations
+    from app.services.interview_engine import process_clinical_query
+    from app.routes.ai import _get_or_create_twin
+    twin = _get_or_create_twin(db, current_user.id)
+    twin_data = {
+        "current_week": twin.current_week,
+        "systolic_bp": twin.systolic_bp,
+        "diastolic_bp": twin.diastolic_bp,
+        "glucose_level": twin.glucose_level,
+        "body_temp": twin.body_temp,
+        "heart_rate": twin.heart_rate
+    }
+    
+    interview_res = process_clinical_query(
+        query=symptoms,
+        user_id=current_user.id,
+        twin_data=twin_data,
+        language="English",
+        action="submit"
+    )
+    
+    if interview_res:
+        if interview_res.get("safety_override"):
+            return {
+                "success": True,
+                "data": {
+                    "status": "emergency",
+                    "risk_level": "Emergency Care 🔴",
+                    "recommended_action": "Seek immediate professional medical attention.",
+                    "detailed_explanation": interview_res["response"]
+                }
+            }
+        if not interview_res.get("completed"):
+            q_text = interview_res["response"].replace("💬 **", "").replace("**", "").replace("To better understand your symptoms, could you please answer this follow-up question:\n\n", "")
+            return {
+                "success": True,
+                "data": {
+                    "status": "question_required",
+                    "consultation_id": str(uuid.uuid4()),
+                    "detected_symptoms": interview_res["collected_symptoms"],
+                    "next_question": {
+                        "id": q_text,
+                        "text": q_text,
+                        "type": "text",
+                        "required": True
+                    },
+                    "progress": {
+                        "answered": interview_res["step_number"] - 1,
+                        "estimated_total": interview_res["total_steps"],
+                        "percentage": int(((interview_res["step_number"] - 1) / interview_res["total_steps"]) * 100)
+                    }
+                }
+            }
+        else:
+            return {
+                "success": True,
+                "data": {
+                    "status": "completed",
+                    "risk_level": interview_res["risk_level"],
+                    "recommended_action": "Follow guidelines.",
+                    "detailed_explanation": interview_res["response"]
+                }
+            }
+    
     lang = nlp_res["detected_language"]
     normalized_text = nlp_res["normalized_text"]
     extracted_symptoms = nlp_res["extracted_symptoms"]

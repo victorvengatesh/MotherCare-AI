@@ -177,6 +177,13 @@ def process_clinical_query(
             for q in [bp_q, visual_q, swelling_q]:
                 if q not in all_required_questions:
                     all_required_questions.insert(0, q) # Ask critical BP questions first!
+
+        # If pregnancy week is missing or 0.0, ask it first
+        week = twin_data.get("current_week")
+        if not week or week == 0.0:
+            q_week = "How many weeks pregnant are you?"
+            if q_week not in all_required_questions:
+                all_required_questions.insert(0, q_week)
         
         session = {
             "symptom_key": symptom_key,

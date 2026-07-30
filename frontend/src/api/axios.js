@@ -12,6 +12,8 @@ const api = axios.create({
  */
 api.interceptors.request.use(
   (config) => {
+    // Print the real endpoint being called during development
+    console.log(`[API Call] Requesting endpoint: ${config.method.toUpperCase()} ${config.baseURL || ''}${config.url}`);
     const token = localStorage.getItem('mc_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;

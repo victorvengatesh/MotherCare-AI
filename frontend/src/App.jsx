@@ -15,7 +15,6 @@ const AppointmentsPage = lazy(() => import('./pages/AppointmentsPage'));
 
 const PATIENT_TABS = [
   { id: 'dashboard',    label: '🩺 Symptom Analysis' },
-  { id: 'chat',         label: '🤖 AI Consultation' },
   { id: 'risk',         label: '🧬 Digital Twin' },
   { id: 'appointments', label: '📅 Appointments' },
 ];
@@ -116,8 +115,7 @@ function App() {
               <div>Loading diagnostics...</div>
             </div>
           }>
-            {activeTab === 'dashboard'    && <Dashboard />}
-            {activeTab === 'chat'         && <ChatPage language={language} setLanguage={setLanguage} />}
+            {activeTab === 'dashboard'    && <ChatPage language={language} setLanguage={setLanguage} />}
             {activeTab === 'risk'         && <RiskDashboard language={language} />}
             {activeTab === 'appointments' && <AppointmentsPage role={role} />}
             {activeTab === 'patients'     && <DoctorDashboard />}
