@@ -233,26 +233,43 @@ def get_relevant_context(
             # Query Chroma with active docs filter
             results = medical_col.query(
                 query_texts=[query],
-                n_results=n_results,
+                n_results=max(n_results, 5),
                 where={"doc_id": {"$in": active_doc_ids}}
             )
             
             if results["documents"] and results["documents"][0]:
-                context_parts.append("--- Approved Clinical Guideline Context ---")
+                distances = results.get("distances", [[0.0] * len(results["documents"][0])])[0]
+                zipped = list(zip(results["documents"][0], results["metadatas"][0], distances))
                 
-                for idx, doc_text in enumerate(results["documents"][0]):
-                    metadata = results["metadatas"][0][idx]
-                    page = metadata.get("page", "?")
-                    title = metadata.get("title", "Clinical Document")
-                    version = metadata.get("version", "1.0")
-                    
-                    context_parts.append(f"[Source: {title} v{version}, Page {page}]\n{doc_text}")
-                    citations.append({
-                        "title": title,
-                        "version": version,
-                        "page": page,
-                        "text_snippet": doc_text[:120] + "..."
-                    })
+                # Sort by distance (smaller distance = better match)
+                zipped.sort(key=lambda x: x[2])
+                
+                # Exclude poor-match noise (distance >= 1.3 is highly unrelated)
+                filtered_zipped = [item for item in zipped if item[2] < 1.3]
+                
+                # Deduplicate very similar text fragments
+                seen_texts = set()
+                deduped = []
+                for doc_text, meta, dist in filtered_zipped:
+                    norm_text = " ".join(doc_text.lower().split())[:150]
+                    if norm_text not in seen_texts:
+                        seen_texts.add(norm_text)
+                        deduped.append((doc_text, meta, dist))
+                
+                if deduped:
+                    context_parts.append("--- Approved Clinical Guideline Context ---")
+                    for doc_text, metadata, dist in deduped[:n_results]:
+                        page = metadata.get("page", "?")
+                        title = metadata.get("title", "Clinical Document")
+                        version = metadata.get("version", "1.0")
+                        
+                        context_parts.append(f"[Source: {title} v{version}, Page {page} (match: {1.0 - min(dist, 1.0):.2f})]\n{doc_text}")
+                        citations.append({
+                            "title": title,
+                            "version": version,
+                            "page": page,
+                            "text_snippet": doc_text[:120] + "..."
+                        })
         except Exception as e:
             logger.warning("Medical RAG query failed: %s", e)
     

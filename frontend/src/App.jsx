@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import Header from './components/Header';
 import ErrorBoundary from './components/ErrorBoundary';
-import Dashboard from './pages/Dashboard';
-import ChatPage from './pages/ChatPage';
-import RiskDashboard from './pages/RiskDashboard';
-import DoctorDashboard from './pages/DoctorDashboard';
-import LoginPage from './pages/LoginPage';
-import AppointmentsPage from './pages/AppointmentsPage';
 import { getToken, setToken, removeToken } from './services/api';
 import './styles/global.css';
+
+// Lazy load route pages for optimal chunk size and performance
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const ChatPage = lazy(() => import('./pages/ChatPage'));
+const RiskDashboard = lazy(() => import('./pages/RiskDashboard'));
+const DoctorDashboard = lazy(() => import('./pages/DoctorDashboard'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const AppointmentsPage = lazy(() => import('./pages/AppointmentsPage'));
 
 const PATIENT_TABS = [
   { id: 'dashboard',    label: '🩺 Symptom Analysis' },
@@ -18,7 +21,13 @@ const PATIENT_TABS = [
 ];
 
 const DOCTOR_TABS = [
-  { id: 'patients',  label: '👩‍⚕️ Patient Directory' },
+  { id: 'patients',     label: '👩‍⚕️ Patient Directory' },
+  { id: 'appointments', label: '📅 Appointments' },
+];
+
+const ADMIN_TABS = [
+  { id: 'admin',        label: '🛡️ Admin Panel' },
+  { id: 'appointments', label: '📅 Appointments' },
 ];
 
 function App() {
@@ -26,8 +35,8 @@ function App() {
   const [username, setUsername] = useState(() => localStorage.getItem('mc_username') || '');
   const [role, setRole] = useState(() => localStorage.getItem('mc_role') || 'patient');
   
-  const TABS = role === 'doctor' ? DOCTOR_TABS : PATIENT_TABS;
-  const initialTab = role === 'doctor' ? 'patients' : 'dashboard';
+  const TABS = role === 'admin' ? ADMIN_TABS : (role === 'doctor' ? DOCTOR_TABS : PATIENT_TABS);
+  const initialTab = role === 'admin' ? 'admin' : (role === 'doctor' ? 'patients' : 'dashboard');
   
   const [activeTab, setActiveTab] = useState(initialTab);
   const [language, setLanguage] = useState('English');
@@ -40,7 +49,7 @@ function App() {
     setUsername(user);
     if (userRole) {
         setRole(userRole);
-        setActiveTab(userRole === 'doctor' ? 'patients' : 'dashboard');
+        setActiveTab(userRole === 'admin' ? 'admin' : (userRole === 'doctor' ? 'patients' : 'dashboard'));
     }
   };
 
@@ -97,11 +106,23 @@ function App() {
 
         {/* Page content */}
         <main style={{ minHeight: 'calc(100vh - 180px)', backgroundColor: '#f8fafc', padding: '1.5rem' }}>
-          {activeTab === 'dashboard'    && <Dashboard />}
-          {activeTab === 'chat'         && <ChatPage language={language} setLanguage={setLanguage} />}
-          {activeTab === 'risk'         && <RiskDashboard language={language} />}
-          {activeTab === 'appointments' && <AppointmentsPage role={role} />}
-          {activeTab === 'patients'     && <DoctorDashboard />}
+          <Suspense fallback={
+            <div style={{ padding: '4rem', textAlign: 'center', color: '#247576', fontSize: '1.1rem', fontWeight: 600 }}>
+              <div style={{
+                display: 'inline-block', width: '30px', height: '30px',
+                border: '3px solid rgba(36, 117, 118, 0.15)', borderTopColor: '#247576',
+                borderRadius: '50%', animation: 'spin 1s infinite linear', marginBottom: '1rem'
+              }} />
+              <div>Loading diagnostics...</div>
+            </div>
+          }>
+            {activeTab === 'dashboard'    && <Dashboard />}
+            {activeTab === 'chat'         && <ChatPage language={language} setLanguage={setLanguage} />}
+            {activeTab === 'risk'         && <RiskDashboard language={language} />}
+            {activeTab === 'appointments' && <AppointmentsPage role={role} />}
+            {activeTab === 'patients'     && <DoctorDashboard />}
+            {activeTab === 'admin'        && <AdminDashboard />}
+          </Suspense>
         </main>
 
         <footer style={{

@@ -292,6 +292,10 @@ const LoginPage = ({ onLoginSuccess }) => {
                   <input type="radio" name="role" value="doctor" checked={form.role === 'doctor'} onChange={handleChange} />
                   Doctor
                 </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+                  <input type="radio" name="role" value="admin" checked={form.role === 'admin'} onChange={handleChange} />
+                  Admin
+                </label>
               </div>
             </div>
           )}

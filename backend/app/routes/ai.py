@@ -32,6 +32,9 @@ risk_engine = MaternalRiskEngine()
 class ChatRequest(BaseModel):
     query: str
     language: str = "English"   # "English" or "Tamil"
+    action: str = "submit"      # "submit", "edit", "reset"
+    question_to_edit: str | None = None
+    new_value: str | None = None
 
 
 class TwinUpdateRequest(BaseModel):
@@ -96,11 +99,38 @@ async def chat(
     if not body.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
+    # Determine language preference
+    language = body.language or current_user.language or "English"
+
+    # Handle immediate reset action
+    if body.action == "reset":
+        from app.services.interview_engine import clear_session
+        clear_session(current_user.id)
+        return StandardResponse(status="success", data={
+            "agent": "obgyn",
+            "agent_label": "System",
+            "response": "Clinical interview session reset. How can I help you today?",
+            "completed": False,
+            "step_number": 0,
+            "total_steps": 0,
+            "collected_symptoms": [],
+            "answers": {},
+            "risk_level": "Home Care 🟢"
+        })
+
     twin = _get_or_create_twin(db, current_user.id)
     twin_data = _twin_to_dict(twin)
 
-    # Use user's saved language preference if not overridden
-    language = body.language or current_user.language or "English"
+    # Auto-extract and update digital twin or reminders if mentioned in the query
+    if body.action == "submit":
+        from app.services.interview_engine import auto_extract_and_update_health_record
+        try:
+            auto_extract_and_update_health_record(db, current_user.id, body.query)
+            # Re-fetch twin data in case it was updated by extraction
+            twin = _get_or_create_twin(db, current_user.id)
+            twin_data = _twin_to_dict(twin)
+        except Exception as exc:
+            logger.error("Auto-extraction pipeline failed: %s", exc)
 
     result = run_consultation(
         query=body.query,
@@ -108,6 +138,9 @@ async def chat(
         twin_data=twin_data,
         language=language,
         db=db,
+        action=body.action,
+        question_to_edit=body.question_to_edit,
+        new_value=body.new_value
     )
 
     # Save to health records

@@ -377,43 +377,180 @@ const RiskDashboard = () => {
 
       {/* Vitals and Risk History Trends (For Patients) */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1.5rem' }}>
+        {/* Left Card: Screening Trend Logs with Interactive SVG Chart */}
         <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '1.5rem' }}>
-          <h3 style={{ margin: '0 0 1rem', color: '#1e293b', fontSize: '1rem' }}>📈 Screening Trend Logs</h3>
+          <h3 style={{ margin: '0 0 1rem', color: '#1e293b', fontSize: '1rem', fontWeight: 800 }}>
+            📈 Screening Urgency Trend
+          </h3>
+          
           {trends.length === 0 ? (
-            <p style={{ color: '#64748b', fontSize: '0.85rem' }}>No screening entries found.</p>
+            <p style={{ color: '#64748b', fontSize: '0.85rem', textAlign: 'center', padding: '2rem' }}>
+              No screening entries found to display trends.
+            </p>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {trends.map((t, i) => (
-                <div key={i} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #f1f5f9', backgroundColor: '#fafafb', fontSize: '0.85rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', marginBottom: '0.25rem' }}>
-                    <span>{new Date(t.timestamp).toLocaleDateString()}</span>
-                    <strong style={{ color: t.urgency === 'High' ? '#dc2626' : '#16a34a' }}>{t.urgency} Urgency</strong>
+            <div>
+              {/* Interactive SVG Chart */}
+              <div style={{ marginBottom: '1.5rem', background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                <svg width="100%" height="200" viewBox="0 0 500 200" preserveAspectRatio="none">
+                  {/* Grid Lines */}
+                  <line x1="40" y1="30" x2="480" y2="30" stroke="#fee2e2" strokeDasharray="3,3" />
+                  <text x="35" y="34" fontSize="9" textAnchor="end" fill="#dc2626" fontWeight="700">High</text>
+                  
+                  <line x1="40" y1="95" x2="480" y2="95" stroke="#fffbeb" strokeDasharray="3,3" />
+                  <text x="35" y="99" fontSize="9" textAnchor="end" fill="#d97706" fontWeight="700">Mod</text>
+                  
+                  <line x1="40" y1="160" x2="480" y2="160" stroke="#f0fdf4" strokeDasharray="3,3" />
+                  <text x="35" y="164" fontSize="9" textAnchor="end" fill="#16a34a" fontWeight="700">Low</text>
+
+                  {/* Draw area & line */}
+                  {(() => {
+                    const points = trends.map((t, idx) => {
+                      const val = t.urgency === 'High' ? 30 : t.urgency === 'Moderate' ? 95 : 160;
+                      const x = 40 + (idx / Math.max(1, trends.length - 1)) * 440;
+                      return { x, y: val, label: new Date(t.timestamp).toLocaleDateString(), t };
+                    });
+
+                    let lineD = '';
+                    let areaD = 'M 40 160';
+                    
+                    points.forEach((p, idx) => {
+                      if (idx === 0) {
+                        lineD = `M ${p.x} ${p.y}`;
+                        areaD = `M ${p.x} 160 L ${p.x} ${p.y}`;
+                      } else {
+                        lineD += ` L ${p.x} ${p.y}`;
+                        areaD += ` L ${p.x} ${p.y}`;
+                      }
+                    });
+                    if (points.length > 0) {
+                      areaD += ` L ${points[points.length - 1].x} 160 Z`;
+                    }
+
+                    return (
+                      <g>
+                        {/* Area */}
+                        {points.length > 1 && <path d={areaD} fill="url(#chart-grad)" opacity="0.15" />}
+                        {/* Line */}
+                        {points.length > 1 && <path d={lineD} fill="none" stroke="#247576" strokeWidth="2.5" />}
+                        {/* Points */}
+                        {points.map((p, idx) => (
+                          <g key={idx}>
+                            <circle
+                              cx={p.x}
+                              cy={p.y}
+                              r="4"
+                              fill="#fff"
+                              stroke="#247576"
+                              strokeWidth="2"
+                              style={{ cursor: 'pointer' }}
+                            />
+                            <title>{`${p.label}\nUrgency: ${p.t.urgency}\nSymptoms: ${p.t.symptoms}`}</title>
+                          </g>
+                        ))}
+                      </g>
+                    );
+                  })()}
+
+                  <defs>
+                    <linearGradient id="chart-grad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#247576" />
+                      <stop offset="100%" stopColor="#247576" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+
+              {/* Raw Entry Logs */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '200px', overflowY: 'auto' }}>
+                {trends.slice().reverse().map((t, i) => (
+                  <div key={i} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #f1f5f9', backgroundColor: '#fafafb', fontSize: '0.85rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', marginBottom: '0.25rem' }}>
+                      <span>{new Date(t.timestamp).toLocaleDateString()}</span>
+                      <strong style={{ color: t.urgency === 'High' ? '#dc2626' : (t.urgency === 'Moderate' ? '#d97706' : '#16a34a') }}>
+                        {t.urgency} Urgency
+                      </strong>
+                    </div>
+                    <p style={{ margin: 0, color: '#334155' }}><strong>Symptoms Reported:</strong> {t.symptoms}</p>
                   </div>
-                  <p style={{ margin: 0, color: '#334155' }}><strong>Symptoms Reported:</strong> {t.symptoms}</p>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>
 
+        {/* Right Card: Alerts Timeline & Status Distribution */}
         <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '1.5rem' }}>
-          <h3 style={{ margin: '0 0 1rem', color: '#1e293b', fontSize: '1rem' }}>🔔 Maternal Alert Status Timeline</h3>
+          <h3 style={{ margin: '0 0 1rem', color: '#1e293b', fontSize: '1rem', fontWeight: 800 }}>
+            🔔 Alert Status Distribution
+          </h3>
+          
           {timeline.length === 0 ? (
-            <p style={{ color: '#64748b', fontSize: '0.85rem' }}>All systems normal. No active or historical risk alerts raised.</p>
+            <p style={{ color: '#64748b', fontSize: '0.85rem', textAlign: 'center', padding: '2rem' }}>
+              All systems normal. No active or historical risk alerts raised.
+            </p>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {timeline.map((item, i) => (
-                <div key={i} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#fff', fontSize: '0.8rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                    <strong>{item.alert_source.toUpperCase()} Alert ({item.risk_level})</strong>
-                    <span>{new Date(item.created_at).toLocaleDateString()}</span>
+            <div>
+              {/* Alert Gauges */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.5rem', background: '#f8fafc', padding: '1rem', borderRadius: '8px' }}>
+                {(() => {
+                  const counts = { new: 0, resolved: 0, escalated: 0 };
+                  timeline.forEach(a => {
+                    if (counts[a.status] !== undefined) counts[a.status]++;
+                  });
+                  const total = timeline.length;
+                  const pct = (val) => Math.round((val / total) * 100);
+
+                  return (
+                    <>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', fontWeight: 600, color: '#475569', marginBottom: 2 }}>
+                          <span>New Alerts</span>
+                          <span>{counts.new} ({pct(counts.new)}%)</span>
+                        </div>
+                        <div style={{ height: 6, backgroundColor: '#e2e8f0', borderRadius: 3, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${pct(counts.new)}%`, backgroundColor: '#ef4444' }} />
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', fontWeight: 600, color: '#475569', marginBottom: 2 }}>
+                          <span>Escalated Alerts</span>
+                          <span>{counts.escalated} ({pct(counts.escalated)}%)</span>
+                        </div>
+                        <div style={{ height: 6, backgroundColor: '#e2e8f0', borderRadius: 3, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${pct(counts.escalated)}%`, backgroundColor: '#a855f7' }} />
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', fontWeight: 600, color: '#475569', marginBottom: 2 }}>
+                          <span>Resolved Alerts</span>
+                          <span>{counts.resolved} ({pct(counts.resolved)}%)</span>
+                        </div>
+                        <div style={{ height: 6, backgroundColor: '#e2e8f0', borderRadius: 3, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${pct(counts.resolved)}%`, backgroundColor: '#22c55e' }} />
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+
+              {/* Raw Timeline Events */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '200px', overflowY: 'auto' }}>
+                {timeline.slice().reverse().map((item, i) => (
+                  <div key={i} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#fff', fontSize: '0.8rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                      <strong>{item.alert_source.toUpperCase()} Alert ({item.risk_level})</strong>
+                      <span>{new Date(item.created_at).toLocaleDateString()}</span>
+                    </div>
+                    <p style={{ margin: '0 0 0.5rem', color: '#475569' }}>{item.warning_signs}</p>
+                    <div>
+                      Status: <strong style={{ color: item.status === 'resolved' ? '#16a34a' : (item.status === 'escalated' ? '#a855f7' : '#ea580c') }}>
+                        {item.status.toUpperCase()}
+                      </strong>
+                    </div>
                   </div>
-                  <p style={{ margin: '0 0 0.5rem', color: '#475569' }}>{item.warning_signs}</p>
-                  <div>
-                    Status: <strong style={{ color: item.status === 'resolved' ? '#16a34a' : '#ea580c' }}>{item.status.toUpperCase()}</strong>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>

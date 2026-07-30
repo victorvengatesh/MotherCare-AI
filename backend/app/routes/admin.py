@@ -375,3 +375,23 @@ def get_guideline_status(
         raise HTTPException(status_code=404, detail="Document not found")
     return StandardResponse(status="success", data={"id": doc.id, "ingestion_status": doc.ingestion_status})
 
+
+@router.get("/audit-logs", response_model=StandardResponse[dict])
+def get_audit_logs(
+    current_admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    logs = db.query(models.AuditTrail).order_by(models.AuditTrail.timestamp.desc()).all()
+    res = []
+    for l in logs:
+        res.append({
+            "id": l.id,
+            "actor": {"id": l.actor.id, "username": l.actor.username} if l.actor else None,
+            "action": l.action,
+            "target_id": l.target_id,
+            "timestamp": l.timestamp.isoformat(),
+            "meta": l.meta
+        })
+    return StandardResponse(status="success", data={"audit_logs": res})
+
+

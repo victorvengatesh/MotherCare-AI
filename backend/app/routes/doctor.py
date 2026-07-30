@@ -668,3 +668,56 @@ def withdraw_instruction(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
+
+class OverrideRequest(BaseModel):
+    override_risk_level: str
+    reason: str
+
+@router.post("/alert/{alert_id}/override", response_model=StandardResponse[dict])
+def clinical_override(
+    alert_id: str,
+    body: OverrideRequest,
+    current_doctor: models.User = Depends(get_current_doctor),
+    db: Session = Depends(get_db)
+):
+    """Allows a clinician to override the AI risk assessment level, logging audit trails."""
+    alert = db.query(models.MaternalRiskAlert).filter(models.MaternalRiskAlert.id == alert_id).first()
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+        
+    check_doctor_patient_access(db, current_doctor, alert.patient_id)
+    
+    original_risk = alert.risk_level
+    alert.risk_level = body.override_risk_level
+    
+    override_note = f"[Clinical Override by Dr. {current_doctor.username}] Changed from {original_risk} to {body.override_risk_level}. Reason: {body.reason}"
+    if alert.doctor_notes:
+        alert.doctor_notes = f"{alert.doctor_notes}\n{override_note}"
+    else:
+        alert.doctor_notes = override_note
+        
+    try:
+        db.commit()
+        create_audit_event(
+            db=db,
+            actor_id=current_doctor.id,
+            action="alert_override",
+            target_id=alert.id,
+            meta={
+                "original_risk": original_risk,
+                "override_risk": body.override_risk_level,
+                "reason": body.reason
+            }
+        )
+        return StandardResponse(
+            status="success",
+            message="Clinical override applied successfully",
+            data={
+                "alert_id": alert.id,
+                "new_risk": alert.risk_level
+            }
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+

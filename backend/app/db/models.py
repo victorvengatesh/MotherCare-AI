@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, ForeignKey, DateTime, Text, Float, JSON, UniqueConstraint
+from sqlalchemy import Column, String, ForeignKey, DateTime, Text, Float, JSON, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -32,7 +32,7 @@ class PatientHistory(Base):
     __tablename__ = "patient_history"
 
     id         = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id    = Column(String, ForeignKey("users.id"), nullable=False)
+    user_id    = Column(String, ForeignKey("users.id"), index=True, nullable=False)
     symptoms   = Column(Text, nullable=False)
     condition  = Column(String, nullable=False)
     urgency    = Column(String, nullable=False)
@@ -83,7 +83,7 @@ class HealthRecord(Base):
     __tablename__ = "health_records"
 
     id          = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id     = Column(String, ForeignKey("users.id"), nullable=False)
+    user_id     = Column(String, ForeignKey("users.id"), index=True, nullable=False)
     data_type   = Column(String, nullable=False)   # 'symptom', 'report', 'image_analysis'
     filename    = Column(String, nullable=True)
     content     = Column(Text, nullable=True)
@@ -98,8 +98,8 @@ class DoctorPatientAssignment(Base):
     __tablename__ = "doctor_patient_assignments"
 
     id             = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    doctor_id      = Column(String, ForeignKey("users.id"), nullable=False)
-    patient_id     = Column(String, ForeignKey("users.id"), nullable=False)
+    doctor_id      = Column(String, ForeignKey("users.id"), index=True, nullable=False)
+    patient_id     = Column(String, ForeignKey("users.id"), index=True, nullable=False)
     status         = Column(String, default="active")  # active, inactive
     assigned_date  = Column(DateTime, default=datetime.utcnow)
     assigned_by    = Column(String, nullable=False)
@@ -118,7 +118,7 @@ class MaternalRiskAlert(Base):
     __tablename__ = "maternal_risk_alerts"
 
     id                 = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    patient_id         = Column(String, ForeignKey("users.id"), nullable=False)
+    patient_id         = Column(String, ForeignKey("users.id"), index=True, nullable=False)
     risk_level         = Column(String, nullable=False)  # High, Moderate, Low, Emergency
     alert_source       = Column(String, nullable=False)  # deterministic, ml, vitals
     warning_signs      = Column(Text, nullable=False)
@@ -126,7 +126,7 @@ class MaternalRiskAlert(Base):
     confidence         = Column(Float, nullable=True)
     created_at         = Column(DateTime, default=datetime.utcnow)
     status             = Column(String, default="new")  # new, under_review, escalated, resolved, dismissed_as_false_positive
-    assigned_doctor_id = Column(String, ForeignKey("users.id"), nullable=True)
+    assigned_doctor_id = Column(String, ForeignKey("users.id"), index=True, nullable=True)
     review_timestamp   = Column(DateTime, nullable=True)
     doctor_notes       = Column(Text, nullable=True)
     resolution_reason  = Column(Text, nullable=True)
@@ -157,7 +157,7 @@ class RAGDocument(Base):
     title            = Column(String, nullable=False)
     version          = Column(String, default="1.0")
     file_hash        = Column(String, unique=True, index=True, nullable=False)
-    is_active        = Column(JSON, default=True)  # handles active/inactive
+    is_active        = Column(Boolean, default=True)
     uploaded_at      = Column(DateTime, default=datetime.utcnow)
     ingestion_status = Column(String, default="processing")  # processing, success, failed
     metadata_json    = Column(JSON, default=dict)
@@ -167,13 +167,13 @@ class PatientInstruction(Base):
     __tablename__ = "patient_instructions"
 
     id              = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    doctor_id       = Column(String, ForeignKey("users.id"), nullable=False)
-    patient_id      = Column(String, ForeignKey("users.id"), nullable=False)
+    doctor_id       = Column(String, ForeignKey("users.id"), index=True, nullable=False)
+    patient_id      = Column(String, ForeignKey("users.id"), index=True, nullable=False)
     alert_id        = Column(String, ForeignKey("maternal_risk_alerts.id"), nullable=True)
     message         = Column(Text, nullable=False)
     priority        = Column(String, default="Normal")  # Normal, High
     created_at      = Column(DateTime, default=datetime.utcnow)
-    patient_visible = Column(JSON, default=True)  # True if patient can read
+    patient_visible = Column(Boolean, default=True)  # True if patient can read
     read_at         = Column(DateTime, nullable=True)
     expiry_date     = Column(DateTime, nullable=True)
     status          = Column(String, default="active")  # active, withdrawn
@@ -189,8 +189,8 @@ class Appointment(Base):
     __tablename__ = "appointments"
 
     id                  = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    patient_id          = Column(String, ForeignKey("users.id"), nullable=False)
-    doctor_id           = Column(String, ForeignKey("users.id"), nullable=False)
+    patient_id          = Column(String, ForeignKey("users.id"), index=True, nullable=False)
+    doctor_id           = Column(String, ForeignKey("users.id"), index=True, nullable=False)
     appointment_datetime = Column(DateTime, nullable=False)
     appointment_type    = Column(String, nullable=False)        # e.g. 'checkup', 'emergency', 'follow_up', 'scan'
     reason              = Column(Text, nullable=False)
@@ -211,7 +211,7 @@ class MedicineReminder(Base):
     __tablename__ = "medicine_reminders"
 
     id              = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    patient_id      = Column(String, ForeignKey("users.id"), nullable=False)
+    patient_id      = Column(String, ForeignKey("users.id"), index=True, nullable=False)
     prescribed_by   = Column(String, ForeignKey("users.id"), nullable=True)   # None → self_added
     medicine_name   = Column(String, nullable=False)
     dosage          = Column(String, nullable=False)          # e.g. "500mg"
@@ -221,7 +221,7 @@ class MedicineReminder(Base):
     end_date        = Column(DateTime, nullable=True)
     instructions    = Column(Text, nullable=True)
     source          = Column(String, default="doctor")        # doctor | self_added
-    is_active       = Column(JSON, default=True)
+    is_active       = Column(Boolean, default=True)
     created_at      = Column(DateTime, default=datetime.utcnow)
     updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -235,8 +235,8 @@ class MedicineAdherence(Base):
     __tablename__ = "medicine_adherences"
 
     id          = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    reminder_id = Column(String, ForeignKey("medicine_reminders.id"), nullable=False)
-    patient_id  = Column(String, ForeignKey("users.id"), nullable=False)
+    reminder_id = Column(String, ForeignKey("medicine_reminders.id"), index=True, nullable=False)
+    patient_id  = Column(String, ForeignKey("users.id"), index=True, nullable=False)
     dose_time   = Column(DateTime, nullable=False)
     status      = Column(String, nullable=False)   # taken | skipped | missed
     recorded_at = Column(DateTime, default=datetime.utcnow)
@@ -251,10 +251,10 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     id            = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id       = Column(String, ForeignKey("users.id"), nullable=False)
+    user_id       = Column(String, ForeignKey("users.id"), index=True, nullable=False)
     notif_type    = Column(String, nullable=False)    # instruction | appointment | reminder | alert_review | follow_up
     message       = Column(Text, nullable=False)      # Safe, non-sensitive summary
-    is_read       = Column(JSON, default=False)
+    is_read       = Column(Boolean, default=False)
     related_id    = Column(String, nullable=True)     # FK to relevant resource (appointment_id, reminder_id, etc.)
     related_type  = Column(String, nullable=True)     # 'appointment' | 'reminder' | 'instruction' | 'alert'
     expiry_date   = Column(DateTime, nullable=True)

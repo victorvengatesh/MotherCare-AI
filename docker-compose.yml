@@ -1,42 +1,103 @@
 version: '3.9'
 
+# =============================================================================
+# MotherCare AI — Phase 6 Production Docker Compose Configuration
+# Services: postgres, redis, backend, frontend, nginx, adminer
+# =============================================================================
+
 services:
-  # Backend API Service
+
+  # ── PostgreSQL Database ──────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: mothercare-postgres
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-mothercare_db}
+      - POSTGRES_USER=${POSTGRES_USER:-mothercare}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mothercare_secret}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mothercare} -d ${POSTGRES_DB:-mothercare_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: always
+    networks:
+      - mothercare-network
+
+  # ── Redis Cache & Pub/Sub ────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: mothercare-redis
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: always
+    networks:
+      - mothercare-network
+
+  # ── Backend API (Private port) ───────────────────────────────────────────────
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: mothercare-ai-backend
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-mothercare}:${POSTGRES_PASSWORD:-mothercare_secret}@postgres:5432/${POSTGRES_DB:-mothercare_db}
+      - REDIS_URL=redis://redis:6379/0
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - MC_SECRET_KEY=${MC_SECRET_KEY}
-      - DATABASE_URL=sqlite:///./data/mothercare.db
-      - ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173
+      - LOG_FORMAT=json
+      - LOG_LEVEL=info
+      - ALLOWED_ORIGINS=https://localhost,http://localhost
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - FROM_EMAIL=${FROM_EMAIL:-}
+      - FROM_NAME=${FROM_NAME:-MotherCare AI}
     volumes:
-      - ./backend/data:/app/data
       - ./backend/uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
-    restart: unless-stopped
+      start_period: 15s
+    restart: always
     networks:
       - mothercare-network
 
-  # Frontend Service
+  # ── Frontend Static server (Private port) ────────────────────────────────────
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: mothercare-ai-frontend
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     environment:
-      - VITE_API_URL=http://127.0.0.1:8000
+      - VITE_API_URL=https://localhost
+      - VITE_WS_URL=wss://localhost
     depends_on:
       backend:
         condition: service_healthy
@@ -46,21 +107,59 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-    restart: unless-stopped
+    restart: always
     networks:
       - mothercare-network
 
-  # Optional: SQLite database management (Adminer)
+  # ── Nginx Gateway (Public entrypoint) ─────────────────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: mothercare-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider --no-check-certificate https://localhost || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: always
+    networks:
+      - mothercare-network
+
+  # ── Adminer (DB Management UI — dev only) ────────────────────────────────────
   adminer:
     image: adminer:latest
     container_name: mothercare-adminer
     ports:
       - "8080:8080"
     environment:
-      - ADMINER_DEFAULT_SERVER=backend
+      - ADMINER_DEFAULT_SERVER=postgres
+    depends_on:
+      - postgres
     restart: unless-stopped
     networks:
       - mothercare-network
+
+# =============================================================================
+# Volumes & Networks
+# =============================================================================
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
 
 networks:
   mothercare-network:

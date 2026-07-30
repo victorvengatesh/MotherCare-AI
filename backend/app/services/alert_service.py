@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import datetime
 from sqlalchemy.orm import Session
@@ -5,6 +6,7 @@ from app.db import models
 from app.services.redflag_service import screen_symptoms
 
 logger = logging.getLogger("alert-service")
+
 
 def create_maternal_alert(
     db: Session,
@@ -81,6 +83,25 @@ def create_maternal_alert(
         )
         
         logger.info("Created new alert for user %s: ID %s", patient_id, new_alert.id)
+
+        # Phase 4: Email assigned doctor for HIGH/EMERGENCY alerts
+        if risk_level in ("High", "Emergency") and assigned_doctor_id:
+            doctor = db.query(models.User).filter_by(id=assigned_doctor_id).first()
+            patient = db.query(models.User).filter_by(id=patient_id).first()
+            if doctor and patient:
+                from app.utils.tasks import run_in_background
+                from app.services.email_service import send_high_risk_alert_to_doctor
+                run_in_background(
+                    send_high_risk_alert_to_doctor(
+                        doctor_email=doctor.email,
+                        doctor_name=doctor.username,
+                        patient_name=patient.username,
+                        risk_level=risk_level,
+                        warning_signs=warning_signs,
+                        alert_source=alert_source,
+                    )
+                )
+
         return new_alert
     except Exception as e:
         db.rollback()

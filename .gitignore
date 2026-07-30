@@ -1,5 +1,6 @@
 # Root .gitignore
 # Ignore Node.js and Python artifacts
+.env
 
 # Frontend
 frontend/node_modules/

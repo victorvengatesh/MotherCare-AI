@@ -104,14 +104,46 @@ def run_consultation(
     twin_data: dict,
     language: str = "English",
     db: Session = None,
+    action: str = "submit",
+    question_to_edit: str | None = None,
+    new_value: str | None = None
 ) -> dict:
     """
     Full orchestration pipeline:
+      0. Clinical Interview Engine (Pregnancy symptom diagnostic loops)
       1. RAG context retrieval
       2. CMO agent selection
       3. Specialist response generation
     """
     client = _get_client()
+
+    # 0. Clinical Interview & Diagnostic Engine Triage
+    from app.services.interview_engine import process_clinical_query
+    clinical_res = process_clinical_query(
+        query=query,
+        user_id=user_id,
+        twin_data=twin_data,
+        language=language,
+        client=client,
+        action=action,
+        question_to_edit=question_to_edit,
+        new_value=new_value
+    )
+    if clinical_res is not None:
+        return {
+            "agent": clinical_res["agent"],
+            "agent_label": clinical_res["agent_label"],
+            "response": clinical_res["response"],
+            "rag_context_used": False,
+            "citations": [],
+            "language": language,
+            "risk_level": clinical_res.get("risk_level"),
+            "completed": clinical_res.get("completed", False),
+            "step_number": clinical_res.get("step_number", 0),
+            "total_steps": clinical_res.get("total_steps", 0),
+            "collected_symptoms": clinical_res.get("collected_symptoms", []),
+            "answers": clinical_res.get("answers", {})
+        }
 
     # 0. Safety Layer
     safety_result = screen_symptoms(query)

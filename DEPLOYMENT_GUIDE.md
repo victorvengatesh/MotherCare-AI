@@ -134,6 +134,12 @@ GEMINI_API_KEY=your_gemini_api_key_here
 MC_SECRET_KEY=your_secret_key_here
 EOF
 
+# Generate self-signed SSL certificates for the Nginx proxy
+# Windows:
+powershell -ExecutionPolicy Bypass -File scripts/generate_certs.ps1
+# Linux/macOS:
+bash scripts/generate_certs.sh
+
 # Start services
 docker-compose up -d
 
@@ -232,23 +238,47 @@ rm backend/data/mothercare.db
 # Restart backend to reinitialize
 ```
 
-### PostgreSQL (Production - Optional)
+### PostgreSQL (Production - Recommended)
 
-To use PostgreSQL instead of SQLite:
+PostgreSQL is supported out-of-the-box in the Docker Compose environment and replaces the development SQLite DB.
 
-1. Install PostgreSQL
-2. Update `DATABASE_URL` in `.env`:
+**Manual PostgreSQL Setup:**
+1. Install PostgreSQL 16+ database server.
+2. Create the database:
+   ```sql
+   CREATE DATABASE mothercare_db;
    ```
-   DATABASE_URL=postgresql://user:password@localhost:5432/mothercare_ai
-   ```
-3. Install Python dependencies:
+3. Install driver dependencies:
    ```bash
    pip install psycopg2-binary
    ```
-4. Create database:
-   ```sql
-   CREATE DATABASE mothercare_ai;
+4. Update `DATABASE_URL` in `.env`:
    ```
+   DATABASE_URL=postgresql://mothercare:mothercare_secret@localhost:5432/mothercare_db
+   ```
+
+**Running Database Migrations:**
+Alembic is used to manage database schema updates. To apply migrations to your database (PostgreSQL or SQLite):
+```bash
+# Apply migrations to the database
+python -m alembic upgrade head
+```
+
+### Redis Cache & WebSocket Pub/Sub
+
+Redis is used to provide distributed caching and push real-time notifications to connected WebSockets.
+
+**Configuration:**
+1. Configure `REDIS_URL` in `.env`:
+   ```
+   REDIS_URL=redis://localhost:6379/0
+   ```
+   *If `REDIS_URL` is empty, the application will automatically fall back to local in-memory caching and standard HTTP polling mode.*
+2. Set the client WebSocket variable for frontend:
+   ```
+   VITE_WS_URL=ws://127.0.0.1:8000
+   ```
+   *Connected tabs subscribe dynamically to `/ws/notifications?token=<JWT>`.*
 
 ---
 
@@ -425,22 +455,39 @@ npm cache clean --force
 npm run build -- --verbose
 ```
 
-### Database Issues
+### Database & Cache Issues
 
-**"database is locked" error**
-```bash
-# Stop all backend processes
-docker-compose down
+**"database is locked" error (SQLite)**
+*   SQLite only allows one write transaction at a time. Stop all processes and restart:
+    ```bash
+    docker-compose down
+    # Or kill local uvicorn tasks
+    killall uvicorn
+    ```
 
-# Or locally:
-ps aux | grep python | grep uvicorn | awk '{print $2}' | xargs kill -9
+**PostgreSQL connection refused / dynamic credentials mismatch**
+*   Verify the PostgreSQL container is running: `docker ps | grep postgres`
+*   Verify that `DATABASE_URL` matches the credentials set in `POSTGRES_USER` and `POSTGRES_PASSWORD` variables in the `.env` file.
+*   Check the docker-compose logs: `docker-compose logs postgres`
 
-# Check database file permissions
-ls -la backend/data/mothercare.db
+**Alembic Migration errors ("Relation does not exist" or "Out of date")**
+*   Apply the baseline and subsequent migrations:
+    ```bash
+    python -m alembic upgrade head
+    ```
+*   If developing locally, make sure you have installed the client drivers: `pip install psycopg2-binary`
 
-# Reset database
-rm backend/data/mothercare.db
-```
+**Redis cache connection latency / fallback issues**
+*   Verify Redis container is running: `docker ps | grep redis`
+*   If Redis is offline, the backend Cache circuit breaker will automatically trip after 3 failed attempts, switching immediately to local in-memory cache for a 30s cool-off window. This prevents any latency bottlenecks.
+*   To check cache status: `curl http://localhost:8000/readiness` (observing checks).
+
+**WebSocket disconnect / connection drops**
+*   Verify the client status indicator dot in the top-right of the dashboard:
+    *   **Green:** Live WebSocket connection established.
+    *   **Yellow/Red:** Connecting/Reconnecting state (WebSocket is attempting exponential backoff reconnects up to 5 times).
+    *   **Gray:** Polling fallback active (WS is offline, app has cleanly downgraded to standard HTTP polling every 60 seconds).
+*   Ensure that the WebSocket base URL (`VITE_WS_URL`) does not end with a trailing slash in your client configurations.
 
 ### Rate Limiting Too Strict
 

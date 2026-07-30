@@ -21,6 +21,7 @@ from app.routes.appointments import router as appointments_router
 from app.routes.reminders import router as reminders_router
 from app.routes.reports import router as reports_router
 from app.routes.notifications import router as notifications_router
+from app.routes.ws import router as ws_router  # Phase 4: WebSocket
 from app.db.database import engine, get_db
 from app.db import models
 from app.utils.logger import logger
@@ -42,9 +43,23 @@ async def lifespan(app: FastAPI):
     logger.info("Starting MotherCare AI API...")
     logger.info(f"Upload directory ready at: {UPLOAD_DIR}")
     
+    # Capture main thread event loop for thread-safe background tasks
+    import asyncio
+    from app.utils.tasks import set_main_loop
+    set_main_loop(asyncio.get_running_loop())
+    
     # Initialize Database tables
     logger.info("Initializing database tables...")
     models.Base.metadata.create_all(bind=engine)
+    
+    # Auto-index default clinical guidelines for RAG support
+    from app.db.database import SessionLocal
+    from app.utils.init_guidelines import auto_index_default_guidelines
+    db = SessionLocal()
+    try:
+        auto_index_default_guidelines(db)
+    finally:
+        db.close()
     
     yield
     logger.info("Shutting down MotherCare AI API...")
@@ -135,6 +150,8 @@ def health_check():
     )
 
 
+from app.routes.trackers import router as trackers_router
+
 app.include_router(analyze_router, tags=["Analysis"])
 app.include_router(auth_router, tags=["Authentication"])
 app.include_router(ai_router, tags=["AI"])
@@ -144,6 +161,8 @@ app.include_router(appointments_router)
 app.include_router(reminders_router)
 app.include_router(reports_router)
 app.include_router(notifications_router)
+app.include_router(ws_router)  # Phase 4: WebSocket real-time notifications
+app.include_router(trackers_router)
 
 
 @app.get("/readiness", tags=["Health"], response_model=StandardResponse[dict])

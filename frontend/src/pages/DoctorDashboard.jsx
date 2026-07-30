@@ -56,6 +56,9 @@ const DoctorDashboard = () => {
   const [noteText, setNoteText] = useState('');
   const [actionReason, setActionReason] = useState('');
   const [showReasonModal, setShowReasonModal] = useState(null); // 'resolve' | 'dismiss' | 'escalate'
+  const [overrideRiskLvl, setOverrideRiskLvl] = useState('Low');
+  const [overrideReason, setOverrideReason] = useState('');
+  const [showOverrideForm, setShowOverrideForm] = useState(false);
 
   // Instruction panel states
   const [patientInstructions, setPatientInstructions] = useState([]);
@@ -226,6 +229,34 @@ const DoctorDashboard = () => {
       handleSelectPatient(selectedPatientId, { ...selectedAlert, status: 'dismissed_as_false_positive', resolution_reason: actionReason });
     } catch (err) {
       alert(err.message || 'Failed to dismiss alert.');
+    }
+  };
+
+  const handleApplyOverride = async () => {
+    if (!overrideReason.trim()) {
+      alert("Please specify a reason for the clinical override.");
+      return;
+    }
+    try {
+      const res = await api.post(`/doctor/alert/${selectedAlert.id}/override`, {
+        override_risk_level: overrideRiskLvl,
+        reason: overrideReason
+      });
+      alert("Clinical override applied successfully!");
+      setShowOverrideForm(false);
+      setOverrideReason('');
+      
+      // Update local state
+      setSelectedAlert(prev => ({
+        ...prev,
+        risk_level: overrideRiskLvl,
+        doctor_notes: prev.doctor_notes 
+          ? `${prev.doctor_notes}\n[Clinical Override] Changed to ${overrideRiskLvl}. Reason: ${overrideReason}`
+          : `[Clinical Override] Changed to ${overrideRiskLvl}. Reason: ${overrideReason}`
+      }));
+      fetchAlerts();
+    } catch (err) {
+      alert(err.response?.data?.detail || "Failed to apply override.");
     }
   };
 
@@ -746,6 +777,49 @@ const DoctorDashboard = () => {
                       >
                         💾 Save Clinical Notes
                       </button>
+
+                      {/* Clinical Override UI Section */}
+                      <div style={{ marginBottom: '1.25rem', border: '1px dashed #cbd5e1', padding: '0.75rem', borderRadius: '8px', backgroundColor: '#f8fafc' }}>
+                        {!showOverrideForm ? (
+                          <button
+                            onClick={() => setShowOverrideForm(true)}
+                            style={{ width: '100%', padding: '0.5rem', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', color: '#0f766e', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}
+                          >
+                            ⚖️ Override AI Risk Assessment
+                          </button>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1e293b' }}>New Override Risk Level:</span>
+                              <select 
+                                value={overrideRiskLvl}
+                                onChange={(e) => setOverrideRiskLvl(e.target.value)}
+                                style={{ padding: '0.25rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
+                              >
+                                <option value="Low">Low (Home Care) 🟢</option>
+                                <option value="Moderate">Moderate (Routine) 🟡</option>
+                                <option value="High">High (Urgent) 🟠</option>
+                                <option value="Emergency">Emergency 🔴</option>
+                              </select>
+                            </div>
+                            <textarea
+                              value={overrideReason}
+                              onChange={(e) => setOverrideReason(e.target.value)}
+                              placeholder="Reason for overriding AI risk level..."
+                              rows={2}
+                              style={{ width: '100%', padding: '0.4rem', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '0.8rem', resize: 'none' }}
+                            />
+                            <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
+                              <button onClick={handleApplyOverride} style={{ padding: '0.3rem 0.75rem', backgroundColor: '#0d9488', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+                                Confirm Override
+                              </button>
+                              <button onClick={() => setShowOverrideForm(false)} style={{ padding: '0.3rem 0.75rem', backgroundColor: '#94a3b8', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
 
                       {/* Action buttons */}
                       <div style={{ display: 'flex', gap: '0.5rem' }}>

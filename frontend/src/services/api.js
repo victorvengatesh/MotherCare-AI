@@ -258,3 +258,67 @@ export const downloadMedicalSummaryPdf = async (patientId = null) => {
   });
   return response; // caller handles blob download
 };
+
+// ─── Admin Endpoints ──────────────────────────────────────────────────────────
+
+export const getAdminUsers = async () => {
+  const response = await apiClient.get('/admin/users');
+  return response.data;
+};
+
+export const getAdminAssignments = async () => {
+  const response = await apiClient.get('/admin/assignments');
+  return response.data;
+};
+
+export const assignPatient = async (doctorId, patientId) => {
+  const response = await apiClient.post('/admin/assign', { doctor_id: doctorId, patient_id: patientId });
+  return response.data;
+};
+
+export const unassignPatient = async (doctorId, patientId) => {
+  const response = await apiClient.post('/admin/unassign', { doctor_id: doctorId, patient_id: patientId });
+  return response.data;
+};
+
+export const listRagDocuments = async () => {
+  const response = await apiClient.get('/admin/rag/documents');
+  return response.data;
+};
+
+export const uploadRagDocument = async (title, version, file) => {
+  const formData = new FormData();
+  formData.append('title', title);
+  formData.append('version', version);
+  formData.append('file', file);
+  const response = await apiClient.post('/admin/rag/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+};
+
+export const toggleRagDocument = async (docId) => {
+  const response = await apiClient.put(`/admin/rag/document/${docId}/toggle`);
+  return response.data;
+};
+
+export const deleteRagDocument = async (docId) => {
+  const response = await apiClient.delete(`/admin/rag/document/${docId}`);
+  return response.data;
+};
+
+export const getRagDocumentStatus = async (docId) => {
+  const response = await apiClient.get(`/admin/rag/document/${docId}/status`);
+  return response.data;
+};
+
+export const getAuditLogs = async () => {
+  const response = await apiClient.get('/admin/audit-logs');
+  return response.data;
+};
+
+export const getHealthRecords = async () => {
+  const response = await apiClient.get('/ai/records');
+  return response.data;
+};
+

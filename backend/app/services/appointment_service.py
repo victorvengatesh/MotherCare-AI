@@ -5,7 +5,9 @@ Handles:
 - Status transition enforcement
 - Audit trail logging
 - Notification dispatch on status changes
+- Phase 4: Email notifications on status changes
 """
+import asyncio
 from datetime import datetime, timedelta
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -192,7 +194,7 @@ def update_appointment_status(
         meta={"reason": reason or ""},
     )
 
-    # Notify patient
+    # Notify patient (in-app)
     msg_map = {
         "confirmed":   "Your appointment has been confirmed by your doctor.",
         "rescheduled": "Your appointment has been rescheduled. Please check your appointments.",
@@ -215,6 +217,46 @@ def update_appointment_status(
             )
         except Exception as e:
             logger.warning("Failed to create appointment notification: %s", e)
+
+    # Phase 4: Email patient on key status changes
+    try:
+        patient = db.query(models.User).filter_by(id=appt.patient_id).first()
+        doctor  = db.query(models.User).filter_by(id=appt.doctor_id).first()
+        if patient and doctor:
+            from app.services.email_service import (
+                send_appointment_confirmation,
+                send_appointment_rescheduled,
+                send_appointment_cancelled,
+            )
+            from app.utils.tasks import run_in_background
+            
+            appt_dt = appt.appointment_datetime.strftime("%Y-%m-%d %H:%M UTC")
+            if new_status == "confirmed":
+                run_in_background(send_appointment_confirmation(
+                    patient_email=patient.email,
+                    patient_name=patient.username,
+                    doctor_name=doctor.username,
+                    appointment_datetime=appt_dt,
+                    appointment_type=appt.appointment_type,
+                    reason=appt.reason,
+                ))
+            elif new_status == "rescheduled":
+                run_in_background(send_appointment_rescheduled(
+                    patient_email=patient.email,
+                    patient_name=patient.username,
+                    doctor_name=doctor.username,
+                    new_datetime=appt_dt,
+                    reschedule_reason=reason or "",
+                ))
+            elif new_status == "cancelled":
+                run_in_background(send_appointment_cancelled(
+                    patient_email=patient.email,
+                    patient_name=patient.username,
+                    doctor_name=doctor.username,
+                    cancellation_reason=reason or "",
+                ))
+    except Exception as e:
+        logger.debug("Appointment email skipped: %s", e)
 
     return appt
 

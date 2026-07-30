@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { listAppointments, requestAppointment, updateAppointmentStatus } from '../services/api';
+import {
+  listAppointments,
+  requestAppointment,
+  updateAppointmentStatus,
+  getPatients,
+  getAdminUsers
+} from '../services/api';
 
 const STATUS_COLORS = {
   requested:   { bg: '#fef3c7', color: '#92400e' },
@@ -19,7 +25,9 @@ export default function AppointmentsPage({ role = 'patient', doctorId = null }) 
   const [showForm, setShowForm] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
   const [actionLoading, setActionLoading] = useState(null);
+  const [usersMap, setUsersMap] = useState({});
 
+  // Form states for requested appointments
   const [form, setForm] = useState({
     doctor_id: doctorId || '',
     appointment_datetime: '',
@@ -27,9 +35,40 @@ export default function AppointmentsPage({ role = 'patient', doctorId = null }) 
     reason: '',
   });
 
+  // Action states for doctors
+  const [activeActionId, setActiveActionId] = useState(null); // ID of appointment currently being edited
+  const [actionType, setActionType] = useState(''); // reschedule | complete | cancel | no_show
+  const [actionFields, setActionFields] = useState({
+    reason: '',
+    doctor_notes: '',
+    patient_instructions: '',
+    new_datetime: ''
+  });
+
   useEffect(() => {
     fetchAppointments();
   }, [filterStatus]);
+
+  useEffect(() => {
+    // Resolve user IDs to readable usernames
+    if (role === 'doctor') {
+      getPatients().then(res => {
+        const mapping = {};
+        (res.patients || []).forEach(p => {
+          mapping[p.id] = p.username;
+        });
+        setUsersMap(mapping);
+      }).catch(() => {});
+    } else if (role === 'admin') {
+      getAdminUsers().then(res => {
+        const mapping = {};
+        (res.users || []).forEach(u => {
+          mapping[u.id] = `${u.username} (${u.role})`;
+        });
+        setUsersMap(mapping);
+      }).catch(() => {});
+    }
+  }, [role]);
 
   async function fetchAppointments() {
     setLoading(true);
@@ -62,7 +101,44 @@ export default function AppointmentsPage({ role = 'patient', doctorId = null }) 
     }
   }
 
-  async function handleCancel(apptId) {
+  // Handle clinical appointment actions
+  async function handleUpdateStatus(apptId, newStatus) {
+    setActionLoading(apptId);
+    try {
+      const payload = { new_status: newStatus };
+      if (newStatus === 'cancelled' || newStatus === 'no_show') {
+        if (!actionFields.reason) {
+          alert('A reason is required.');
+          setActionLoading(null);
+          return;
+        }
+        payload.reason = actionFields.reason;
+      } else if (newStatus === 'rescheduled') {
+        if (!actionFields.new_datetime || !actionFields.reason) {
+          alert('New Date/Time and Reason are required.');
+          setActionLoading(null);
+          return;
+        }
+        payload.new_datetime = new Date(actionFields.new_datetime).toISOString();
+        payload.reason = actionFields.reason;
+      } else if (newStatus === 'completed') {
+        payload.doctor_notes = actionFields.doctor_notes;
+        payload.patient_instructions = actionFields.patient_instructions;
+      }
+
+      await updateAppointmentStatus(apptId, payload);
+      setActiveActionId(null);
+      setActionType('');
+      setActionFields({ reason: '', doctor_notes: '', patient_instructions: '', new_datetime: '' });
+      await fetchAppointments();
+    } catch (e) {
+      alert(`Error: ${e.message}`);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handlePatientCancel(apptId) {
     const reason = window.prompt('Please provide a cancellation reason:');
     if (!reason) return;
     setActionLoading(apptId);
@@ -85,6 +161,15 @@ export default function AppointmentsPage({ role = 'patient', doctorId = null }) 
     border: '1px solid #e2e8f0',
   };
 
+  const actionButtonStyle = {
+    padding: '0.35rem 0.75rem',
+    borderRadius: '6px',
+    fontSize: '0.78rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    border: 'none',
+  };
+
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto' }}>
       {/* Header */}
@@ -92,7 +177,7 @@ export default function AppointmentsPage({ role = 'patient', doctorId = null }) 
         <div>
           <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.5rem', fontWeight: 700 }}>📅 Appointments</h2>
           <p style={{ margin: '0.25rem 0 0', color: '#64748b', fontSize: '0.9rem' }}>
-            {role === 'patient' ? 'Your scheduled appointments' : 'Patient appointments'}
+            {role === 'patient' ? 'Your scheduled appointments' : 'Manage patient appointment requests'}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
@@ -111,7 +196,7 @@ export default function AppointmentsPage({ role = 'patient', doctorId = null }) 
               onClick={() => setShowForm(f => !f)}
               style={{
                 padding: '0.5rem 1.1rem',
-                background: showForm ? '#e2e8f0' : 'linear-gradient(135deg, #0ea5e9, #0369a1)',
+                background: showForm ? '#e2e8f0' : 'linear-gradient(135deg, #247576, #1b5a5b)',
                 color: showForm ? '#374151' : '#fff',
                 border: 'none',
                 borderRadius: '8px',
@@ -128,8 +213,8 @@ export default function AppointmentsPage({ role = 'patient', doctorId = null }) 
 
       {/* Request Form */}
       {showForm && role === 'patient' && (
-        <div style={{ ...card, border: '2px solid #0ea5e9', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: '0 0 1rem', color: '#0369a1', fontSize: '1rem' }}>New Appointment Request</h3>
+        <div style={{ ...card, border: '2px solid #247576', marginBottom: '1.5rem' }}>
+          <h3 style={{ margin: '0 0 1rem', color: '#247576', fontSize: '1rem' }}>New Appointment Request</h3>
           <form onSubmit={handleRequestAppointment}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
               <div>
@@ -192,7 +277,7 @@ export default function AppointmentsPage({ role = 'patient', doctorId = null }) 
                 disabled={actionLoading === 'form'}
                 style={{
                   padding: '0.55rem 1.5rem',
-                  background: 'linear-gradient(135deg, #0ea5e9, #0369a1)',
+                  background: 'linear-gradient(135deg, #247576, #1b5a5b)',
                   color: '#fff',
                   border: 'none',
                   borderRadius: '8px',
@@ -233,19 +318,21 @@ export default function AppointmentsPage({ role = 'patient', doctorId = null }) 
       )}
 
       {appointments.map(appt => {
-        const style = STATUS_COLORS[appt.status] || { bg: '#f3f4f6', color: '#374151' };
+        const statusDec = STATUS_COLORS[appt.status] || { bg: '#f3f4f6', color: '#374151' };
         const dt = new Date(appt.appointment_datetime);
         const isPast = dt < new Date();
+        const isClinician = role === 'doctor' || role === 'admin';
+        const clientName = usersMap[appt.patient_id] || appt.patient_id;
 
         return (
           <div key={appt.id} style={card}>
             <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
-              <div>
+              <div style={{ flex: 1, minWidth: '280px' }}>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
                   <span style={{
                     fontSize: '0.75rem', fontWeight: 700,
                     padding: '0.15rem 0.5rem', borderRadius: '4px',
-                    backgroundColor: style.bg, color: style.color,
+                    backgroundColor: statusDec.bg, color: statusDec.color,
                   }}>
                     {appt.status.toUpperCase()}
                   </span>
@@ -260,6 +347,13 @@ export default function AppointmentsPage({ role = 'patient', doctorId = null }) 
                     <span style={{ fontSize: '0.7rem', color: '#dc2626', fontWeight: 600 }}>⚠ Past date</span>
                   )}
                 </div>
+
+                {isClinician && (
+                  <div style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '0.2rem' }}>
+                    Patient: <strong>{clientName}</strong>
+                  </div>
+                )}
+
                 <div style={{ fontSize: '1rem', fontWeight: 700, color: '#1e293b' }}>
                   {dt.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 </div>
@@ -271,6 +365,14 @@ export default function AppointmentsPage({ role = 'patient', doctorId = null }) 
                     <strong>Reason:</strong> {appt.reason}
                   </div>
                 )}
+
+                {/* Show clinical notes to doctor or admin */}
+                {isClinician && appt.doctor_notes && (
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem', fontStyle: 'italic' }}>
+                    <strong>Doctor Notes (Internal):</strong> {appt.doctor_notes}
+                  </div>
+                )}
+
                 {appt.patient_instructions && (
                   <div style={{
                     marginTop: '0.5rem', padding: '0.5rem 0.75rem',
@@ -280,28 +382,186 @@ export default function AppointmentsPage({ role = 'patient', doctorId = null }) 
                     📋 <strong>Instructions:</strong> {appt.patient_instructions}
                   </div>
                 )}
+
+                {appt.cancellation_reason && (
+                  <div style={{ fontSize: '0.8rem', color: '#b91c1c', marginTop: '0.25rem' }}>
+                    <strong>Cancellation Reason:</strong> {appt.cancellation_reason}
+                  </div>
+                )}
+                {appt.reschedule_reason && (
+                  <div style={{ fontSize: '0.8rem', color: '#1e3a8a', marginTop: '0.25rem' }}>
+                    <strong>Reschedule Reason:</strong> {appt.reschedule_reason}
+                  </div>
+                )}
               </div>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'flex-start', justifyContent: 'flex-end' }}>
                 {role === 'patient' && appt.status === 'requested' && (
                   <button
-                    onClick={() => handleCancel(appt.id)}
+                    onClick={() => handlePatientCancel(appt.id)}
                     disabled={actionLoading === appt.id}
                     style={{
-                      padding: '0.4rem 0.85rem',
-                      background: '#fee2e2',
+                      ...actionButtonStyle,
+                      backgroundColor: '#fee2e2',
                       color: '#991b1b',
                       border: '1px solid #fca5a5',
-                      borderRadius: '6px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      fontSize: '0.8rem',
                     }}
                   >
-                    {actionLoading === appt.id ? '…' : 'Cancel'}
+                    {actionLoading === appt.id ? '…' : 'Cancel Request'}
                   </button>
+                )}
+
+                {isClinician && activeActionId !== appt.id && (
+                  <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    {(appt.status === 'requested') && (
+                      <button
+                        onClick={() => handleUpdateStatus(appt.id, 'confirmed')}
+                        disabled={actionLoading === appt.id}
+                        style={{ ...actionButtonStyle, backgroundColor: '#d1fae5', color: '#065f46' }}
+                      >
+                        ✓ Confirm
+                      </button>
+                    )}
+                    {(appt.status === 'confirmed' || appt.status === 'rescheduled') && (
+                      <button
+                        onClick={() => { setActiveActionId(appt.id); setActionType('complete'); }}
+                        style={{ ...actionButtonStyle, backgroundColor: '#e0f2fe', color: '#0369a1' }}
+                      >
+                        🩺 Complete
+                      </button>
+                    )}
+                    {(appt.status === 'requested' || appt.status === 'confirmed') && (
+                      <button
+                        onClick={() => { setActiveActionId(appt.id); setActionType('reschedule'); }}
+                        style={{ ...actionButtonStyle, backgroundColor: '#fef3c7', color: '#92400e' }}
+                      >
+                        🔄 Reschedule
+                      </button>
+                    )}
+                    {(appt.status === 'confirmed') && (
+                      <button
+                        onClick={() => { setActiveActionId(appt.id); setActionType('no_show'); }}
+                        style={{ ...actionButtonStyle, backgroundColor: '#fce7f3', color: '#831843' }}
+                      >
+                        No Show
+                      </button>
+                    )}
+                    {(appt.status === 'requested' || appt.status === 'confirmed' || appt.status === 'rescheduled') && (
+                      <button
+                        onClick={() => { setActiveActionId(appt.id); setActionType('cancel'); }}
+                        style={{ ...actionButtonStyle, backgroundColor: '#fee2e2', color: '#991b1b' }}
+                      >
+                        ✕ Cancel
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
+
+            {/* Action Form Inputs under selected appointment */}
+            {isClinician && activeActionId === appt.id && (
+              <div style={{
+                marginTop: '1rem', padding: '1rem', borderTop: '1px solid #e2e8f0',
+                backgroundColor: '#f8fafc', borderRadius: '8px'
+              }}>
+                <h4 style={{ margin: '0 0 0.75rem', fontSize: '0.85rem', color: '#1e293b', textTransform: 'capitalize' }}>
+                  {actionType} Appointment
+                </h4>
+
+                {actionType === 'reschedule' && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>New Date & Time *</label>
+                      <input
+                        type="datetime-local"
+                        required
+                        value={actionFields.new_datetime}
+                        onChange={e => setActionFields(f => ({ ...f, new_datetime: e.target.value }))}
+                        style={{ padding: '0.4rem', fontSize: '0.8rem', width: '100%', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>Reason for Rescheduling *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Schedule conflict"
+                        value={actionFields.reason}
+                        onChange={e => setActionFields(f => ({ ...f, reason: e.target.value }))}
+                        style={{ padding: '0.4rem', fontSize: '0.8rem', width: '100%', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {actionType === 'complete' && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>Internal Doctor Notes</label>
+                      <textarea
+                        rows={2}
+                        placeholder="Diagnosis details, clinical comments..."
+                        value={actionFields.doctor_notes}
+                        onChange={e => setActionFields(f => ({ ...f, doctor_notes: e.target.value }))}
+                        style={{ padding: '0.4rem', fontSize: '0.8rem', width: '100%', boxSizing: 'border-box', resize: 'none' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>Patient Care Instructions</label>
+                      <textarea
+                        rows={2}
+                        placeholder="Take prescribed vitamins, call coordinate clinic..."
+                        value={actionFields.patient_instructions}
+                        onChange={e => setActionFields(f => ({ ...f, patient_instructions: e.target.value }))}
+                        style={{ padding: '0.4rem', fontSize: '0.8rem', width: '100%', boxSizing: 'border-box', resize: 'none' }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {(actionType === 'cancel' || actionType === 'no_show') && (
+                  <div style={{ marginBottom: '0.5rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>Reason *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder={`Provide a reason for ${actionType === 'cancel' ? 'cancellation' : 'no-show'}`}
+                      value={actionFields.reason}
+                      onChange={e => setActionFields(f => ({ ...f, reason: e.target.value }))}
+                      style={{ padding: '0.4rem', fontSize: '0.8rem', width: '100%', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => { setActiveActionId(null); setActionType(''); }}
+                    style={{ ...actionButtonStyle, backgroundColor: '#cbd5e1', color: '#334155' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleUpdateStatus(appt.id, {
+                      reschedule: 'rescheduled',
+                      complete: 'completed',
+                      cancel: 'cancelled',
+                      no_show: 'no_show'
+                    }[actionType])}
+                    disabled={actionLoading === appt.id}
+                    style={{
+                      ...actionButtonStyle,
+                      backgroundColor: '#247576',
+                      color: '#fff',
+                      opacity: actionLoading === appt.id ? 0.7 : 1
+                    }}
+                  >
+                    {actionLoading === appt.id ? 'Saving…' : 'Submit'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         );
       })}
