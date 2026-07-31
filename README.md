@@ -1,12 +1,14 @@
 # MotherCare AI — Bilingual Maternal Healthcare Triage
 
-[![Status](https://img.shields.io/badge/status-production--ready-brightgreen)]()
+[![Status](https://img.shields.io/badge/status-clinical--decision--support-orange)]()
 [![License](https://img.shields.io/badge/license-MIT-blue)]()
 [![Code Coverage](https://img.shields.io/badge/coverage-80%25-green)]()
 [![Python](https://img.shields.io/badge/python-3.11-blue)]()
 [![Node.js](https://img.shields.io/badge/node.js-18-green)]()
 
-> A comprehensive AI-powered maternal healthcare triage system with bilingual support, multi-agent orchestration, digital twin tracking, and production-grade stability patterns.
+> A bilingual maternal-health triage and clinical decision-support prototype with multi-agent orchestration, digital-twin tracking, and safety-oriented fallback patterns.
+
+> **Safety notice:** MotherCare AI does not diagnose, prescribe, or replace licensed clinical care. For severe symptoms, heavy bleeding, seizures, breathing difficulty, chest pain, reduced fetal movement, or any emergency, contact local emergency services or a qualified obstetric clinician immediately.
 
 ---
 
@@ -358,7 +360,7 @@ MIT License — See LICENSE file for details
 
 ---
 
-**Built with ❤️ by Kiro AI**  
+**Built with ❤️ by Victor Vengatesh**  
 **Last Updated:** July 6, 2026  
 **Version:** 1.0.0
 
