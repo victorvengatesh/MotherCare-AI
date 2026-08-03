@@ -322,3 +322,11 @@ export const getHealthRecords = async () => {
   return response.data;
 };
 
+export const applyOverride = async (alertId, overrideRiskLevel, reason) => {
+  const response = await apiClient.post(`/doctor/alert/${alertId}/override`, {
+    override_risk_level: overrideRiskLevel,
+    reason: reason
+  });
+  return response.data;
+};
+

@@ -130,10 +130,31 @@ def run_consultation(
         new_value=new_value
     )
     if clinical_res is not None:
+        # Also trigger DB alert on safety override
+        if clinical_res.get("safety_override") and db is not None:
+            from app.services.alert_service import create_maternal_alert
+            warning_signs = "; ".join(clinical_res.get("collected_symptoms", ["Emergency"]))
+            create_maternal_alert(
+                db=db,
+                patient_id=user_id,
+                risk_level="Emergency",
+                alert_source="deterministic",
+                warning_signs=warning_signs
+            )
+            
+        safety_flags = []
+        response_text = clinical_res["response"]
+        if clinical_res.get("safety_override"):
+            raw_sympts = clinical_res.get("collected_symptoms", [])
+            has_bleed = any("bleed" in s.lower() or "ratham" in s.lower() for s in raw_sympts)
+            safety_flags = ["Vaginal bleeding"] if has_bleed else raw_sympts
+            if "🚨 EMERGENCY ALERT" not in response_text:
+                response_text = response_text.replace("🚨 CLINICAL EMERGENCY DETECTED", "🚨 EMERGENCY ALERT")
+
         return {
             "agent": clinical_res["agent"],
             "agent_label": clinical_res["agent_label"],
-            "response": clinical_res["response"],
+            "response": response_text,
             "rag_context_used": False,
             "citations": [],
             "language": language,
@@ -142,7 +163,8 @@ def run_consultation(
             "step_number": clinical_res.get("step_number", 0),
             "total_steps": clinical_res.get("total_steps", 0),
             "collected_symptoms": clinical_res.get("collected_symptoms", []),
-            "answers": clinical_res.get("answers", {})
+            "answers": clinical_res.get("answers", {}),
+            "safety_flags": safety_flags
         }
 
     # 0. Safety Layer

@@ -606,9 +606,9 @@ def search_clinical_library(query: str) -> dict | None:
     q = query.lower()
 
     # Subset rules for emergency safety triggers (100% recall)
-    if ("move" in q or "kick" in q or "asai" in q) and ("stop" in q or "no" in q or "kammi" in q or "illa" in q):
+    if ("mov" in q or "kick" in q or "asai" in q) and ("stop" in q or "no" in q or "kammi" in q or "illa" in q):
         return {"matched_symptom": "Absence of Fetal Movement", "urgency": "Emergency", "emergency_triggered": True, "advice": "Go to obstetric triage or ER immediately for fetal heart monitoring."}
-    if ("bleed" in q or "ratham" in q or "spot" in q) and ("soak" in q or "heavy" in q or "pour" in q):
+    if ("bleed" in q or "ratham" in q or "spot" in q) and ("soak" in q or "heavy" in q or "pour" in q or "since" in q or "morning" in q or "severe" in q):
         return {"matched_symptom": "Severe Vaginal Bleeding", "urgency": "Emergency", "emergency_triggered": True, "advice": "Go to the nearest emergency room immediately. Heavy vaginal bleeding is a critical maternal emergency."}
     if "seiz" in q or "convuls" in q or "fit" in q or "vali" in q:
         return {"matched_symptom": "Seizure / Eclampsia", "urgency": "Emergency", "emergency_triggered": True, "advice": "Call emergency services immediately. Put patient on her side in a safe position."}

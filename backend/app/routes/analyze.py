@@ -81,12 +81,23 @@ async def analyze(
     
     if interview_res:
         if interview_res.get("safety_override"):
+            from app.services.alert_service import create_maternal_alert
+            create_maternal_alert(
+                db=db,
+                patient_id=current_user.id,
+                risk_level="Emergency",
+                alert_source="deterministic",
+                warning_signs="; ".join(interview_res.get("collected_symptoms", ["Emergency"]))
+            )
             return {
                 "success": True,
                 "data": {
                     "status": "emergency",
-                    "risk_level": "Emergency Care 🔴",
+                    "risk_level": "Emergency",
+                    "requires_immediate_care": True,
+                    "extracted_symptoms": nlp_res["extracted_symptoms"],
                     "recommended_action": "Seek immediate professional medical attention.",
+                    "explanation": f"CRITICAL WARNING: {interview_res['response']}",
                     "detailed_explanation": interview_res["response"]
                 }
             }

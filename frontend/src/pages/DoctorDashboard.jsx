@@ -12,7 +12,8 @@ import {
   sendInstruction,
   listDoctorInstructions,
   updateInstruction,
-  withdrawInstruction
+  withdrawInstruction,
+  applyOverride
 } from '../services/api';
 
 const ALERT_STATUS_DECORATION = {
@@ -238,10 +239,7 @@ const DoctorDashboard = () => {
       return;
     }
     try {
-      const res = await api.post(`/doctor/alert/${selectedAlert.id}/override`, {
-        override_risk_level: overrideRiskLvl,
-        reason: overrideReason
-      });
+      await applyOverride(selectedAlert.id, overrideRiskLvl, overrideReason);
       alert("Clinical override applied successfully!");
       setShowOverrideForm(false);
       setOverrideReason('');
