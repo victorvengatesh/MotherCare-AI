@@ -13,14 +13,14 @@ vi.mock('../components/NotificationBell', () => ({
 vi.mock('../services/api', () => ({
   loginUser: vi.fn().mockResolvedValue({
     access_token: 'mock-token-abc',
-    user: { role: 'patient' }
+    user: { role: 'patient' },
   }),
   registerUser: vi.fn().mockResolvedValue({
-    status: 'success'
+    status: 'success',
   }),
   getToken: vi.fn(),
   setToken: vi.fn(),
-  removeToken: vi.fn()
+  removeToken: vi.fn(),
 }));
 
 describe('DisclaimerBox Component', () => {
@@ -41,13 +41,13 @@ describe('Header Component', () => {
   it('renders the username and Sign Out button when authenticated', () => {
     const mockLogout = vi.fn();
     render(<Header username="Alice" onLogout={mockLogout} />);
-    
+
     expect(screen.getByText(/Alice/)).toBeInTheDocument();
     expect(screen.getByTestId('notification-bell')).toBeInTheDocument();
-    
+
     const signOutBtn = screen.getByText('Sign Out');
     expect(signOutBtn).toBeInTheDocument();
-    
+
     fireEvent.click(signOutBtn);
     expect(mockLogout).toHaveBeenCalledTimes(1);
   });
@@ -56,22 +56,33 @@ describe('Header Component', () => {
 describe('LoginPage Component', () => {
   it('renders input elements for username and password', () => {
     render(<LoginPage onLoginSuccess={vi.fn()} />);
-    
+
     expect(screen.getByPlaceholderText('Enter your username')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Enter your password')).toBeInTheDocument();
-    
-    // There are 2 "Sign In" buttons: one in the toggle tab, one as the form submit button
+
     const buttons = screen.getAllByRole('button', { name: 'Sign In' });
     expect(buttons.length).toBe(2);
   });
 
-  it('validates user input and displays error banners if empty', () => {
+  it('validates user input and exposes an accessible error banner', () => {
     const { container } = render(<LoginPage onLoginSuccess={vi.fn()} />);
-    
+
     const formEl = container.querySelector('form');
     fireEvent.submit(formEl);
-    
-    // Should display validation errors
-    expect(screen.getByText(/Validation Errors:/)).toBeInTheDocument();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/validation errors/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(/username is required/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(/password is required/i);
+  });
+
+  it('makes public registration patient-only', () => {
+    render(<LoginPage onLoginSuccess={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Register' }));
+
+    expect(screen.getByText(/Public signup creates a/i)).toHaveTextContent('patient account');
+    expect(screen.queryByLabelText('Doctor')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Admin')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create Patient Account' })).toBeInTheDocument();
   });
 });
