@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from starlette.requests import Request
 
-from app.core.middleware import _get_rate_limit_identity
+from app.core.middleware import _get_rate_limit_identity, _request_path
 from app.db import models
 from app.db.database import Base, get_db
 from app.main import app
@@ -45,7 +45,11 @@ def client(db_session):
         app.dependency_overrides.clear()
 
 
-def _request_with_token(token: str, ip: str = "127.0.0.1") -> Request:
+def _request_with_token(
+    token: str,
+    ip: str = "127.0.0.1",
+    host: str = "testserver",
+) -> Request:
     return Request(
         {
             "type": "http",
@@ -55,7 +59,10 @@ def _request_with_token(token: str, ip: str = "127.0.0.1") -> Request:
             "path": "/ai/chat",
             "raw_path": b"/ai/chat",
             "query_string": b"",
-            "headers": [(b"authorization", f"Bearer {token}".encode())],
+            "headers": [
+                (b"host", host.encode()),
+                (b"authorization", f"Bearer {token}".encode()),
+            ],
             "client": (ip, 12345),
             "server": ("testserver", 80),
         }
@@ -123,3 +130,20 @@ def test_refresh_token_is_not_used_as_rate_limit_user_identity(monkeypatch):
 
     identity = _get_rate_limit_identity(_request_with_token(token, ip="10.0.0.7"))
     assert identity == "ip:10.0.0.7"
+
+
+def test_security_path_comes_from_asgi_scope_not_host_header(monkeypatch):
+    secret = "e" * 32
+    monkeypatch.setenv("MC_SECRET_KEY", secret)
+    token = jwt.encode(
+        {"sub": "verified_user", "type": "access"},
+        secret,
+        algorithm="HS256",
+    )
+
+    request = _request_with_token(
+        token,
+        host="example.com/forged-path?ignored=1",
+    )
+
+    assert _request_path(request) == "/ai/chat"
