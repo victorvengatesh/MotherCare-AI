@@ -19,6 +19,16 @@ from app.core.rate_limiter import check_rate_limit, get_retry_after, log_rate_li
 logger = logging.getLogger(__name__)
 
 
+def _request_path(request: Request) -> str:
+    """Return the router-facing ASGI path, independent of the Host header.
+
+    Older Starlette versions can reconstruct ``request.url.path`` from an
+    attacker-controlled malformed Host header. Security decisions such as
+    rate-limit bucket selection must therefore use the raw ASGI scope path.
+    """
+    return request.scope.get("path") or "/"
+
+
 def _get_rate_limit_identity(request: Request) -> str:
     """Return a trusted rate-limit identity.
 
@@ -46,7 +56,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     """Enforce rate limiting on API endpoints."""
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        endpoint = f"{request.method} {request.url.path}"
+        endpoint = f"{request.method} {_request_path(request)}"
         identity = _get_rate_limit_identity(request)
 
         allowed, remaining = check_rate_limit(endpoint, identity)
@@ -79,12 +89,13 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         start_time = time.time()
+        path = _request_path(request)
 
         logger.info(
             "Incoming request",
             extra={
                 "method": request.method,
-                "path": request.url.path,
+                "path": path,
                 "client_ip": request.client.host if request.client else None,
                 "user_agent": request.headers.get("User-Agent", "Unknown"),
             },
@@ -97,7 +108,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 "Request error",
                 extra={
                     "method": request.method,
-                    "path": request.url.path,
+                    "path": path,
                     "error_type": type(exc).__name__,
                 },
                 exc_info=True,
@@ -109,7 +120,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             "Request completed",
             extra={
                 "method": request.method,
-                "path": request.url.path,
+                "path": path,
                 "status_code": response.status_code,
                 "duration_ms": f"{duration_ms:.1f}",
                 "client_ip": request.client.host if request.client else None,
