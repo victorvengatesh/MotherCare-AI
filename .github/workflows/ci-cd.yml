@@ -40,6 +40,7 @@ jobs:
           python -m pytest -q \
             tests/test_main.py \
             tests/test_auth_security.py \
+            tests/test_upload_security.py \
             tests/test_orchestrator_safety.py \
             tests/test_redflag.py \
             tests/test_phase5.py
@@ -61,6 +62,10 @@ jobs:
       - name: Install dependencies
         working-directory: frontend
         run: npm ci
+
+      - name: Audit production dependencies
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Lint
         working-directory: frontend
