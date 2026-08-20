@@ -1,61 +1,120 @@
-# MotherCare AI — Bilingual Maternal Healthcare Triage
+# MotherCare AI — Bilingual Maternal Health Decision Support
 
-[![Status](https://img.shields.io/badge/status-clinical--decision--support-orange)]()
-[![License](https://img.shields.io/badge/license-MIT-blue)]()
-[![Code Coverage](https://img.shields.io/badge/coverage-80%25-green)]()
-[![Python](https://img.shields.io/badge/python-3.11-blue)]()
-[![Node.js](https://img.shields.io/badge/node.js-18-green)]()
+> A Tamil-and-English maternal-health decision-support prototype that combines symptom analysis, multi-agent routing, retrieval-augmented generation and pregnancy risk tracking.
 
-> A bilingual maternal-health triage and clinical decision-support prototype with multi-agent orchestration, digital-twin tracking, and safety-oriented fallback patterns.
-
-> **Safety notice:** MotherCare AI does not diagnose, prescribe, or replace licensed clinical care. For severe symptoms, heavy bleeding, seizures, breathing difficulty, chest pain, reduced fetal movement, or any emergency, contact local emergency services or a qualified obstetric clinician immediately.
+> **Safety notice:** MotherCare AI is an educational and research prototype. It does not diagnose, prescribe or replace licensed medical care. Urgent or severe symptoms should be handled by qualified clinicians or local emergency services.
 
 ---
 
-## 🎯 Overview
+## Why this project exists
 
-MotherCare AI leverages advanced AI technologies to provide preliminary maternal healthcare triage and guidance:
+Pregnancy-related questions often arrive as unstructured descriptions rather than clean clinical data. MotherCare AI explores how an AI-assisted system can organize those inputs, route them to specialized reasoning paths, preserve context and surface risk signals while keeping a human-in-the-loop safety boundary.
 
-- **Intelligent Routing** — AI CMO routes queries to specialized agents (OB-GYN, Nutritionist, Mental Health, Emergency)
-- **Digital Twin Tracking** — Real-time pregnancy biomarker monitoring with risk predictions
-- **Knowledge Integration** — RAG-powered knowledge base with medical document analysis
-- **Medical Imaging** — CNN-based classification for skin conditions, burns, wounds
-- **Multilingual** — Full English & Tamil support
-- **Production-Grade** — Circuit breaker, rate limiting, comprehensive error handling
+The goal is not autonomous medicine. The goal is to study how a dependable software system can support preliminary triage, structured tracking and safer escalation.
 
 ---
 
-## 🚀 Quick Start
+## Core capabilities
 
-### Option 1: Docker Compose (Recommended)
-```bash
-# Clone repository
-git clone https://github.com/your-org/mothercare-ai.git
-cd mothercare-ai
+- **Bilingual interaction** — Tamil and English user flows
+- **Multi-agent routing** — routes requests to specialized maternal-health, nutrition, mental-health or emergency-oriented logic
+- **RAG knowledge retrieval** — retrieves relevant medical knowledge for grounded responses
+- **Pregnancy digital twin** — tracks selected maternal biomarkers and longitudinal state
+- **Risk analytics** — supports rule/model-based signals for conditions such as anemia, gestational diabetes and pre-eclampsia risk
+- **Health records** — persists user history and structured records
+- **Document analysis** — accepts supported health-report uploads for extraction/analysis workflows
+- **Image-analysis research path** — experimental classification workflow for selected image categories
+- **Resilience controls** — validation, error handling, rate limiting and circuit-breaker patterns
 
-# Create environment file
-cp backend/.env.example backend/.env
-# Edit backend/.env with your Gemini API key
+---
 
-# Start all services
-docker-compose up -d
+## Architecture
 
-# Access application
-# Frontend: http://localhost:3000
-# Backend API: http://localhost:8000
-# API Docs: http://localhost:8000/docs
+```text
+React frontend
+      │
+      ▼
+FastAPI API
+      │
+      ├── Authentication / validation
+      ├── Symptom + risk analysis
+      ├── Multi-agent orchestration
+      ├── Digital-twin state
+      ├── Health-record workflows
+      │
+      ├── Gemini / model adapters
+      ├── RAG / vector retrieval
+      └── SQLAlchemy persistence
 ```
 
-### Option 2: Local Development
+### Main stack
+
+**Backend:** Python · FastAPI · Pydantic · SQLAlchemy  
+**Frontend:** React · Vite  
+**AI:** Gemini integration · RAG · NLP/rule-based fallback paths  
+**Data:** SQLite for local development · vector-store integration for retrieval  
+**Engineering:** Docker · GitHub Actions · pytest · validation and resilience utilities
+
+---
+
+## Repository layout
+
+```text
+MotherCare-AI/
+├── backend/              FastAPI service, models, routes, services and tests
+├── frontend/             React application
+├── model/                Model-training / experimentation code
+├── .github/              Automation and CI configuration
+├── docker-compose.yml    Local multi-service startup
+├── ARCHITECTURE.md       Architecture notes
+├── DEPLOYMENT_GUIDE.md   Deployment guidance
+└── README.md
+```
+
+The repository also contains historical implementation reports produced during development. They document project evolution, but this README is the primary source for the current project overview.
+
+---
+
+## Quick start
+
+### Docker
+
+```bash
+git clone https://github.com/victorvengatesh/MotherCare-AI.git
+cd MotherCare-AI
+
+cp backend/.env.example backend/.env
+# Add only the environment values required for the features you want to run.
+
+docker compose up --build
+```
+
+Typical local services:
+
+- Frontend: `http://localhost:3000` or the port configured by the frontend runtime
+- Backend API: `http://localhost:8000` / `8001` depending on the selected run command
+- FastAPI docs: `/docs`
+
+### Manual development
+
 ```bash
 # Backend
 cd backend
 python -m venv .venv
-source .venv/bin/activate  # or .\.venv\Scripts\activate on Windows
-pip install -r requirements.txt
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8001
 
-# Frontend (new terminal)
+# Windows
+.venv\Scripts\activate
+
+# macOS/Linux
+source .venv/bin/activate
+
+pip install -r requirements.txt
+python -m uvicorn app.main:app --reload
+```
+
+In a second terminal:
+
+```bash
 cd frontend
 npm install
 npm run dev
@@ -63,312 +122,83 @@ npm run dev
 
 ---
 
-## 📋 Features
+## Testing
 
-### 🤖 AI Capabilities
-- **Multi-Agent Orchestration** — Intelligent routing to specialized agents
-- **RAG Knowledge Base** — ChromaDB vector embeddings for semantic search
-- **Medical AI** — Gemini 2.5 integration for conversational healthcare
-- **Image Classification** — ML models for skin conditions, burns, wounds
-- **NLP Symptom Engine** — Advanced natural language processing with normalization
+Backend tests live under `backend/tests/`.
 
-### 🏥 Medical Features
-- **Digital Twin** — Continuous pregnancy biomarker tracking
-- **Risk Analytics** — Pre-eclampsia, gestational diabetes, anemia predictions
-- **Health Records** — Persistent patient history and medical documents
-- **Bilingual Interface** — English & Tamil support
-
-### 🔒 Security
-- **OWASP Top 10 Compliant** — Comprehensive security hardening
-- **JWT Authentication** — Secure token-based auth
-- **Input Validation** — Frontend + backend validation with sanitization
-- **Rate Limiting** — Per-endpoint and per-user rate limits
-- **Circuit Breaker** — Prevents cascading failures
-- **Security Headers** — CSP, X-Frame-Options, XSS protection
-
-### 📊 Production Ready
-- **Docker Containerization** — Multi-stage builds, minimal images
-- **CI/CD Pipeline** — GitHub Actions automated testing & deployment
-- **Monitoring** — Request logging, health checks, metrics ready
-- **Load Testing** — Locust-based load testing framework
-- **Deployment Guide** — Complete production deployment instructions
-
----
-
-## 🏗️ Architecture
-
-```
-┌──────────────────────────┐
-│  React Frontend (5173)   │
-│  - Dashboard             │
-│  - Chat Interface        │
-│  - Risk Analytics        │
-└──────────┬───────────────┘
-           │
-┌──────────▼───────────────┐
-│  FastAPI Backend (8001)  │
-│  - Multi-agent AI        │
-│  - Digital Twin          │
-│  - Health Records        │
-│  - Image Analysis        │
-└──────────┬───────────────┘
-           │
-    ┌──────┴──────┬──────────┐
-    │             │          │
-┌───▼──┐    ┌────▼─┐   ┌───▼────┐
-│Gemini│    │RAG   │   │SQLite  │
-│ API  │    │(Vec) │   │(Data)  │
-└──────┘    └──────┘   └────────┘
-```
-
----
-
-## 📁 Project Structure
-
-```
-mothercare-ai/
-├── backend/                          # FastAPI backend
-│   ├── app/
-│   │   ├── main.py                  # Application entry point
-│   │   ├── routes/                  # API endpoints
-│   │   │   ├── auth.py             # Authentication
-│   │   │   ├── ai.py               # AI endpoints
-│   │   │   └── analyze.py          # Analysis endpoints
-│   │   ├── services/                # Business logic
-│   │   │   ├── auth_service.py
-│   │   │   ├── rag_service.py      # Knowledge base
-│   │   │   ├── analysis_service.py # Symptom engine
-│   │   │   └── ...
-│   │   ├── core/                    # Core utilities
-│   │   │   ├── circuit_breaker.py  # Fault tolerance
-│   │   │   ├── rate_limiter.py     # Rate limiting
-│   │   │   ├── middleware.py       # Request middleware
-│   │   │   ├── caching.py          # Performance caching
-│   │   │   └── responses.py        # Response formatting
-│   │   ├── db/                      # Database layer
-│   │   │   ├── database.py         # SQLAlchemy setup
-│   │   │   └── models.py           # ORM models
-│   │   └── schemas/                 # Pydantic models
-│   ├── tests/                       # Test suites
-│   │   ├── smoke_test_p0.py        # Smoke tests
-│   │   ├── test_p0_stability.py    # Unit tests
-│   │   └── load_test.py            # Load testing
-│   ├── requirements.txt             # Python dependencies
-│   ├── Dockerfile                   # Docker image
-│   └── .env.example                # Config template
-│
-├── frontend/                         # React frontend
-│   ├── src/
-│   │   ├── pages/                   # Page components
-│   │   │   ├── LoginPage.jsx
-│   │   │   ├── ChatPage.jsx
-│   │   │   ├── Dashboard.jsx
-│   │   │   └── RiskDashboard.jsx
-│   │   ├── components/              # Reusable components
-│   │   │   ├── Header.jsx
-│   │   │   └── ErrorBoundary.jsx
-│   │   ├── utils/                   # Utilities
-│   │   │   └── validation.js        # Input validation
-│   │   ├── api/                     # API integration
-│   │   │   └── axios.js            # HTTP client
-│   │   ├── services/                # Business logic
-│   │   │   └── api.js              # API methods
-│   │   ├── styles/
-│   │   │   └── global.css
-│   │   └── App.jsx
-│   ├── package.json                 # Node dependencies
-│   ├── vite.config.js              # Vite config
-│   ├── Dockerfile                   # Docker image
-│   └── .env.example                # Config template
-│
-├── docker-compose.yml               # Multi-container setup
-├── .github/
-│   └── workflows/
-│       └── ci-cd.yml               # GitHub Actions
-│
-├── Documentation/
-│   ├── DEPLOYMENT_GUIDE.md         # Production deployment
-│   ├── SECURITY_AUDIT.md           # Security analysis
-│   ├── PHASE3_COMPLETION_SUMMARY.md
-│   └── PROJECT_COMPLETION_REPORT.md
-│
-└── README.md                         # This file
-```
-
----
-
-## 🚢 Deployment
-
-### Development
 ```bash
-docker-compose up                    # Local development
-npm run dev                          # Frontend hot reload
-python -m uvicorn app.main:app --reload  # Backend hot reload
-```
-
-### Production
-```bash
-# See DEPLOYMENT_GUIDE.md for comprehensive instructions
-
-# With Docker Compose
-docker-compose -f docker-compose.prod.yml up -d
-
-# With Kubernetes
-kubectl apply -f k8s/
-
-# On cloud platforms (AWS, GCP, etc.)
-# Follow cloud-specific deployment guides
-```
-
----
-
-## 🔐 Security
-
-### OWASP Top 10 Compliance
-- ✓ A01 — Broken Access Control
-- ✓ A02 — Cryptographic Failures
-- ✓ A03 — Injection
-- ✓ A04 — Insecure Design
-- ✓ A05 — Broken Authentication
-- ✓ A06 — Sensitive Data Exposure
-- ✓ A07 — Identification and Authentication Failures
-- ✓ A08 — Software and Data Integrity Failures
-- ✓ A09 — Logging and Monitoring Failures
-- ✓ A10 — Server-Side Request Forgery
-
-See [SECURITY_AUDIT.md](./SECURITY_AUDIT.md) for detailed security analysis.
-
----
-
-## 🧪 Testing
-
-### Run Tests
-```bash
-# Backend tests
 cd backend
-pytest tests/ -v --cov=app
-
-# Smoke tests
-python tests/smoke_test_p0.py
-
-# Load testing
-locust -f tests/load_test.py -u 100 -r 10 --run-time 5m
-
-# Frontend tests
-cd frontend
-npm test
+pytest -v
 ```
 
----
+Where coverage tooling is installed:
 
-## 📊 Performance
+```bash
+pytest --cov=app
+```
 
-| Metric | Value |
-|--------|-------|
-| API Response Time | <200ms (cached) |
-| Chat Query Time | 2-5s (Gemini) |
-| Cache Hit Ratio | 60-80% |
-| Database Query Reduction | -60% with caching |
-| Request Throughput | 150 req/s |
-| Docker Startup | <5 seconds |
-| Backend Image Size | 500 MB |
-| Frontend Image Size | 50 MB |
+Performance, security and coverage numbers should be treated as measured results only when they are backed by a reproducible test run or CI artifact. This repository intentionally avoids presenting estimated values as guarantees.
 
 ---
 
-## 📚 API Endpoints
+## Safety design
 
-### Authentication
-- `POST /auth/register` — Create new account
-- `POST /auth/login` — Get JWT token
+MotherCare AI treats medical AI as **decision support**, not autonomous clinical authority.
 
-### AI Chat
-- `POST /ai/chat` — Multi-agent consultation
-- `GET /ai/records` — Health records history
+Key design principles:
 
-### Digital Twin
-- `GET /ai/twin` — Get current twin state
-- `PUT /ai/twin` — Update biomarkers
+- explicit emergency escalation paths
+- input validation before analysis
+- fallbacks when external model services are unavailable
+- human-readable outputs instead of hidden autonomous actions
+- separation between informational guidance and medical diagnosis
+- persistence of structured context for longitudinal review
 
-### Medical Analysis
-- `POST /ai/upload-report` — PDF analysis
-- `POST /analyze/symptom` — Symptom analysis
-- `POST /analyze/image` — Image classification
-
-All endpoints documented at `/docs` (Swagger UI).
+The system should not be deployed for real clinical use without appropriate medical validation, privacy review, security assessment, regulatory analysis and supervised evaluation on representative data.
 
 ---
 
-## 🤝 Contributing
+## Security notes
 
-1. Create feature branch: `git checkout -b feature/your-feature`
-2. Make changes and test: `pytest tests/ && npm test`
-3. Commit with message: `git commit -m "feat: your feature"`
-4. Push to branch: `git push origin feature/your-feature`
-5. Open pull request for review
+The project includes authentication, validation, rate-limiting and security-oriented middleware patterns. Those controls reduce common application risks but **do not by themselves establish formal OWASP compliance or clinical-grade security certification**.
 
----
+Before any real-world deployment, perform at minimum:
 
-## 📝 License
+- dependency and secret scanning
+- authentication/authorization review
+- threat modeling
+- database and privacy review
+- penetration testing
+- production logging/monitoring design
+- clinical data-governance review
 
-MIT License — See LICENSE file for details
-
----
-
-## 📞 Support
-
-- **Documentation** — See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)
-- **Issues** — GitHub Issues
-- **Security** — Email security@example.com
-- **Email** — team@example.com
+Never commit API keys, tokens or patient-identifying data.
 
 ---
 
-## 🎯 Roadmap
+## Current engineering priorities
 
-### Phase 4 (Future)
-- [ ] PostgreSQL migration
-- [ ] Advanced analytics dashboard
-- [ ] Mobile app (React Native)
-- [ ] Email notifications
-- [ ] Two-factor authentication
-- [ ] OAuth2/OpenID Connect
-- [ ] Kubernetes deployment
-- [ ] Advanced caching (Redis)
-- [ ] WebSocket for real-time updates
+- strengthen real-world dataset quality and model evaluation
+- improve automated test coverage and CI evidence
+- consolidate historical development documentation
+- add clearer experiment and benchmark reporting
+- strengthen privacy/security review for health-data workflows
+- improve deployment observability and failure monitoring
 
 ---
 
-## ✅ Status
+## Project status
 
-- **Phase 1** ✓ Core features (complete)
-- **Phase 2** ✓ Stability patterns (complete)
-- **Phase 3** ✓ Deployment & security (complete)
-- **Phase 4** — Advanced features (upcoming)
-
----
-
-## 📈 Project Statistics
-
-- **Total LOC:** 15,000+
-- **Test Coverage:** 80%+
-- **Security Issues:** 0 CRITICAL
-- **Documentation:** 2,000+ lines
-- **Docker Ready:** ✓ Yes
-- **CI/CD Ready:** ✓ Yes
-- **Production Ready:** ✓ Yes
+**Status:** active research / portfolio prototype  
+**Primary use:** learning, experimentation, demonstration and engineering research  
+**Not intended for:** unsupervised medical diagnosis or emergency decision-making
 
 ---
 
-**Built with ❤️ by Victor Vengatesh**  
-**Last Updated:** July 6, 2026  
-**Version:** 1.0.0
+## License
+
+See the repository license file if present. Third-party models, APIs, datasets and medical references remain subject to their own terms and licenses.
 
 ---
 
-### Quick Links
-- [Deployment Guide](./DEPLOYMENT_GUIDE.md)
-- [Security Audit](./SECURITY_AUDIT.md)
-- [Phase 3 Summary](./PHASE3_COMPLETION_SUMMARY.md)
-- [Project Report](./PROJECT_COMPLETION_REPORT.md)
-- [API Docs](/docs)
+Built by **M. Victor Vengatesh**.
