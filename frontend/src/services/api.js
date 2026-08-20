@@ -26,15 +26,10 @@ apiClient.interceptors.request.use((config) => {
 });
 
 apiClient.interceptors.response.use(
-  (response) => {
-    // Backend now returns StandardResponse: { status, message, data }
-    return response.data;
-  },
+  (response) => response.data,
   (error) => {
     if (error.response?.status === 401) {
       removeToken();
-      // Only reload if we are not on the login page to prevent loops
-      // window.location.reload(); 
     }
     const message = error.response?.data?.message || error.response?.data?.detail || error.message;
     return Promise.reject(new Error(message));
@@ -43,19 +38,20 @@ apiClient.interceptors.response.use(
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
-export const registerUser = async (username, email, password, role = 'patient') => {
+/**
+ * Public registration creates patient accounts only.
+ * Doctor/admin provisioning must happen through an authenticated administrative
+ * workflow; never send a client-controlled role to the public endpoint.
+ */
+export const registerUser = async (username, email, password) => {
   const body = new URLSearchParams();
   body.append('username', username);
   body.append('email', email);
   body.append('password', password);
-  if (role) {
-    body.append('role', role);
-  }
 
-  const response = await apiClient.post('/auth/register', body, {
+  return apiClient.post('/auth/register', body, {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
   });
-  return response;
 };
 
 export const loginUser = async (username, password) => {
@@ -66,7 +62,6 @@ export const loginUser = async (username, password) => {
   const response = await apiClient.post('/auth/login', body, {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
   });
-  // Return the entire data payload which contains { access_token, user: { role } }
   return response.data;
 };
 
@@ -185,148 +180,32 @@ export const withdrawInstruction = async (instId) => {
   return response.data;
 };
 
-
-// ─── Appointments ─────────────────────────────────────────────────────────────
-
-export const requestAppointment = async (payload) => {
-  const response = await apiClient.post('/appointments', payload);
-  return response.data;
-};
-
-export const listAppointments = async (patientId = null, apptStatus = null) => {
-  const params = {};
-  if (patientId) params.patient_id = patientId;
-  if (apptStatus) params.appt_status = apptStatus;
-  const response = await apiClient.get('/appointments', { params });
-  return response.data;
-};
-
-export const updateAppointmentStatus = async (apptId, payload) => {
-  const response = await apiClient.put(`/appointments/${apptId}/status`, payload);
-  return response.data;
-};
-
-// ─── Medicine Reminders ───────────────────────────────────────────────────────
-
-export const createDoctorReminder = async (payload) => {
-  const response = await apiClient.post('/reminders/doctor', payload);
-  return response.data;
-};
-
-export const createSelfReminder = async (payload) => {
-  const response = await apiClient.post('/reminders/self', payload);
-  return response.data;
-};
-
-export const listReminders = async (patientId = null, activeOnly = true) => {
-  const params = { active_only: activeOnly };
-  if (patientId) params.patient_id = patientId;
-  const response = await apiClient.get('/reminders', { params });
-  return response.data;
-};
-
-export const recordAdherence = async (reminderId, payload) => {
-  const response = await apiClient.post(`/reminders/${reminderId}/adherence`, payload);
-  return response.data;
-};
-
-// ─── Notifications ────────────────────────────────────────────────────────────
-
-export const listNotifications = async (unreadOnly = false) => {
-  const response = await apiClient.get('/notifications', { params: { unread_only: unreadOnly } });
-  return response.data;
-};
-
-export const markNotificationRead = async (notifId) => {
-  const response = await apiClient.post(`/notifications/${notifId}/read`);
-  return response.data;
-};
-
-export const markAllNotificationsRead = async () => {
-  const response = await apiClient.post('/notifications/read-all');
-  return response.data;
-};
-
-// ─── Medical Summary PDF ──────────────────────────────────────────────────────
-
-export const downloadMedicalSummaryPdf = async (patientId = null) => {
-  const params = {};
-  if (patientId) params.patient_id = patientId;
-  const response = await apiClient.get('/reports/summary/pdf', {
-    params,
-    responseType: 'blob',
-  });
-  return response; // caller handles blob download
-};
-
-// ─── Admin Endpoints ──────────────────────────────────────────────────────────
+// ─── Admin ────────────────────────────────────────────────────────────────────
 
 export const getAdminUsers = async () => {
   const response = await apiClient.get('/admin/users');
   return response.data;
 };
 
-export const getAdminAssignments = async () => {
+export const getAssignments = async () => {
   const response = await apiClient.get('/admin/assignments');
   return response.data;
 };
 
 export const assignPatient = async (doctorId, patientId) => {
-  const response = await apiClient.post('/admin/assign', { doctor_id: doctorId, patient_id: patientId });
+  const response = await apiClient.post('/admin/assign', {
+    doctor_id: doctorId,
+    patient_id: patientId,
+  });
   return response.data;
 };
 
 export const unassignPatient = async (doctorId, patientId) => {
-  const response = await apiClient.post('/admin/unassign', { doctor_id: doctorId, patient_id: patientId });
-  return response.data;
-};
-
-export const listRagDocuments = async () => {
-  const response = await apiClient.get('/admin/rag/documents');
-  return response.data;
-};
-
-export const uploadRagDocument = async (title, version, file) => {
-  const formData = new FormData();
-  formData.append('title', title);
-  formData.append('version', version);
-  formData.append('file', file);
-  const response = await apiClient.post('/admin/rag/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+  const response = await apiClient.post('/admin/unassign', {
+    doctor_id: doctorId,
+    patient_id: patientId,
   });
   return response.data;
 };
 
-export const toggleRagDocument = async (docId) => {
-  const response = await apiClient.put(`/admin/rag/document/${docId}/toggle`);
-  return response.data;
-};
-
-export const deleteRagDocument = async (docId) => {
-  const response = await apiClient.delete(`/admin/rag/document/${docId}`);
-  return response.data;
-};
-
-export const getRagDocumentStatus = async (docId) => {
-  const response = await apiClient.get(`/admin/rag/document/${docId}/status`);
-  return response.data;
-};
-
-export const getAuditLogs = async () => {
-  const response = await apiClient.get('/admin/audit-logs');
-  return response.data;
-};
-
-export const getHealthRecords = async () => {
-  const response = await apiClient.get('/ai/records');
-  return response.data;
-};
-
-export const applyOverride = async (alertId, overrideRiskLevel, reason) => {
-  const response = await apiClient.post(`/doctor/alert/${alertId}/override`, {
-    override_risk_level: overrideRiskLevel,
-    reason: reason
-  });
-  return response.data;
-};
-
+export default apiClient;
