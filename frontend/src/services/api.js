@@ -27,14 +27,12 @@ apiClient.interceptors.request.use((config) => {
 
 apiClient.interceptors.response.use(
   (response) => {
-    // Backend now returns StandardResponse: { status, message, data }
+    // Backend returns StandardResponse: { status, message, data }
     return response.data;
   },
   (error) => {
     if (error.response?.status === 401) {
       removeToken();
-      // Only reload if we are not on the login page to prevent loops
-      // window.location.reload(); 
     }
     const message = error.response?.data?.message || error.response?.data?.detail || error.message;
     return Promise.reject(new Error(message));
@@ -43,19 +41,16 @@ apiClient.interceptors.response.use(
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
-export const registerUser = async (username, email, password, role = 'patient') => {
+/** Public signup is patient-only; privileged accounts require admin provisioning. */
+export const registerUser = async (username, email, password) => {
   const body = new URLSearchParams();
   body.append('username', username);
   body.append('email', email);
   body.append('password', password);
-  if (role) {
-    body.append('role', role);
-  }
 
-  const response = await apiClient.post('/auth/register', body, {
+  return apiClient.post('/auth/register', body, {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
   });
-  return response;
 };
 
 export const loginUser = async (username, password) => {
@@ -66,7 +61,6 @@ export const loginUser = async (username, password) => {
   const response = await apiClient.post('/auth/login', body, {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
   });
-  // Return the entire data payload which contains { access_token, user: { role } }
   return response.data;
 };
 
@@ -185,7 +179,6 @@ export const withdrawInstruction = async (instId) => {
   return response.data;
 };
 
-
 // ─── Appointments ─────────────────────────────────────────────────────────────
 
 export const requestAppointment = async (payload) => {
@@ -256,7 +249,7 @@ export const downloadMedicalSummaryPdf = async (patientId = null) => {
     params,
     responseType: 'blob',
   });
-  return response; // caller handles blob download
+  return response;
 };
 
 // ─── Admin Endpoints ──────────────────────────────────────────────────────────
@@ -325,8 +318,7 @@ export const getHealthRecords = async () => {
 export const applyOverride = async (alertId, overrideRiskLevel, reason) => {
   const response = await apiClient.post(`/doctor/alert/${alertId}/override`, {
     override_risk_level: overrideRiskLevel,
-    reason: reason
+    reason: reason,
   });
   return response.data;
 };
-

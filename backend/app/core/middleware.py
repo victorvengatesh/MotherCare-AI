@@ -1,20 +1,16 @@
-"""
-Custom FastAPI Middleware for MotherCare AI
+"""Custom middleware for MotherCare AI.
 
-Includes:
-- Rate limiting middleware
-- Request logging middleware
-- CORS configuration
-- Security headers
+CORS is intentionally configured once in ``app.main`` from ``ALLOWED_ORIGINS``.
+This module owns rate limiting, request logging, and security headers only.
 """
 
-import time
 import logging
-import jwt
+import os
+import time
 from typing import Callable
+
+import jwt
 from fastapi import Request, Response
-from fastapi.middleware import Middleware
-from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
@@ -23,169 +19,143 @@ from app.core.rate_limiter import check_rate_limit, get_retry_after, log_rate_li
 logger = logging.getLogger(__name__)
 
 
+def _request_path(request: Request) -> str:
+    """Return the router-facing ASGI path, independent of the Host header.
+
+    Older Starlette versions can reconstruct ``request.url.path`` from an
+    attacker-controlled malformed Host header. Security decisions such as
+    rate-limit bucket selection must therefore use the raw ASGI scope path.
+    """
+    return request.scope.get("path") or "/"
+
+
+def _get_rate_limit_identity(request: Request) -> str:
+    """Return a trusted rate-limit identity.
+
+    A JWT subject is used only after signature and access-token verification.
+    Invalid, forged, or refresh tokens fall back to the client IP so callers
+    cannot rotate arbitrary ``sub`` claims to bypass per-user rate limits.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    secret_key = os.getenv("MC_SECRET_KEY")
+
+    if secret_key and auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        try:
+            payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+            if payload.get("type", "access") == "access" and payload.get("sub"):
+                return f"user:{payload['sub']}"
+        except jwt.PyJWTError:
+            logger.debug("Invalid bearer token supplied to rate limiter")
+
+    client_ip = request.client.host if request.client else "unknown"
+    return f"ip:{client_ip}"
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Enforce rate limiting on API endpoints."""
-    
+
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        # Extract endpoint path
-        endpoint = f"{request.method} {request.url.path}"
-        
-        # Get user ID from token if available
-        user_id = None
-        auth_header = request.headers.get("Authorization", "")
-        
-        if auth_header.startswith("Bearer "):
-            try:
-                # Extract token
-                token = auth_header[7:]  # Remove "Bearer " prefix
-                # Try to decode without verification (just to get the sub claim)
-                # In production, you'd verify the signature
-                payload = jwt.decode(token, options={"verify_signature": False})
-                user_id = payload.get("sub")  # "sub" is the username/user_id claim
-            except Exception as e:
-                # If token parsing fails, fall back to IP-based limiting
-                logger.debug(f"Could not extract user_id from token: {e}")
-                user_id = None
-        
-        # Fall back to IP address if no user_id extracted
-        if not user_id:
-            user_id = request.client.host if request.client else "unknown"
-        
-        # Check rate limit
-        allowed, remaining = check_rate_limit(endpoint, user_id)
-        
+        endpoint = f"{request.method} {_request_path(request)}"
+        identity = _get_rate_limit_identity(request)
+
+        allowed, remaining = check_rate_limit(endpoint, identity)
+
         if not allowed:
             retry_after = get_retry_after(endpoint)
-            log_rate_limit_event(endpoint, user_id, request.client.host if request.client else None)
-            
+            log_rate_limit_event(
+                endpoint,
+                identity,
+                request.client.host if request.client else None,
+            )
             return JSONResponse(
                 status_code=429,
                 content={
                     "status": "error",
                     "message": "Rate limit exceeded. Please slow down.",
                     "detail": f"Too many requests. Try again in {retry_after} seconds.",
-                    "retry_after": retry_after
+                    "retry_after": retry_after,
                 },
-                headers={"Retry-After": str(retry_after)}
+                headers={"Retry-After": str(retry_after)},
             )
-        
-        # Add rate limit headers to response
+
         response = await call_next(request)
         response.headers["X-RateLimit-Remaining"] = str(max(0, remaining))
-        
         return response
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Log all requests with timing and status information."""
-    
+    """Log requests with timing and status information."""
+
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        # Start timing
         start_time = time.time()
-        
-        # Log request
+        path = _request_path(request)
+
         logger.info(
-            f"Incoming request",
+            "Incoming request",
             extra={
                 "method": request.method,
-                "path": request.url.path,
+                "path": path,
                 "client_ip": request.client.host if request.client else None,
-                "user_agent": request.headers.get("User-Agent", "Unknown")
-            }
+                "user_agent": request.headers.get("User-Agent", "Unknown"),
+            },
         )
-        
-        # Process request
+
         try:
             response = await call_next(request)
-        except Exception as e:
+        except Exception as exc:
             logger.error(
-                f"Request error",
+                "Request error",
                 extra={
                     "method": request.method,
-                    "path": request.url.path,
-                    "error": str(e)
+                    "path": path,
+                    "error_type": type(exc).__name__,
                 },
-                exc_info=True
+                exc_info=True,
             )
             raise
-        
-        # Calculate duration
+
         duration_ms = (time.time() - start_time) * 1000
-        
-        # Log response
         logger.info(
-            f"Request completed",
+            "Request completed",
             extra={
                 "method": request.method,
-                "path": request.url.path,
+                "path": path,
                 "status_code": response.status_code,
                 "duration_ms": f"{duration_ms:.1f}",
-                "client_ip": request.client.host if request.client else None
-            }
+                "client_ip": request.client.host if request.client else None,
+            },
         )
-        
         return response
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Add security headers to all responses."""
-    
+    """Add baseline security headers to all responses."""
+
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         response = await call_next(request)
-        
-        # Security headers
+
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'"
+        )
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-        
         return response
 
 
-def get_cors_middleware() -> Middleware:
-    """Configure CORS middleware."""
-    return CORSMiddleware(
-        allow_origins=[
-            "http://localhost:3000",
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
-            "http://127.0.0.1:3000",
-        ],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-        expose_headers=["X-RateLimit-Remaining", "Retry-After"],
-    )
-
-
 def setup_middleware(app):
-    """Setup all middleware for the application."""
-    
-    # Add security headers middleware (innermost)
+    """Install non-CORS middleware.
+
+    CORS is installed in ``app.main`` so deployment-specific origins are not
+    overwritten by a second hard-coded middleware layer.
+    """
     app.add_middleware(SecurityHeadersMiddleware)
-    
-    # Add request logging middleware
     app.add_middleware(RequestLoggingMiddleware)
-    
-    # Add rate limiting middleware
     app.add_middleware(RateLimitMiddleware)
-    
-    # Add CORS middleware (outermost)
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[
-            "http://localhost:3000",
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
-            "http://127.0.0.1:3000",
-        ],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-        expose_headers=["X-RateLimit-Remaining", "Retry-After"],
-    )
-    
     return app
