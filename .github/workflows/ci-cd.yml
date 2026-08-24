@@ -80,9 +80,19 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Generate temporary TLS certificate
+        run: |
+          openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+            -keyout nginx/certs/mothercare.key \
+            -out nginx/certs/mothercare.crt \
+            -subj "/CN=localhost"
+          test -s nginx/certs/mothercare.key
+          test -s nginx/certs/mothercare.crt
+
       - name: Verify Docker Compose Configuration
         env:
           POSTGRES_PASSWORD: ci-only-database-password
+          DATABASE_URL: postgresql://mothercare:ci-only-database-password@postgres:5432/mothercare_db
           MC_SECRET_KEY: ci-only-secret-key-at-least-32-characters
           GEMINI_API_KEY: mock-key-for-ci
         run: docker compose config --quiet
