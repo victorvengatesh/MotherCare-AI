@@ -1,5 +1,7 @@
 # MotherCare AI — Bilingual Maternal Health Decision Support
 
+[![CI](https://github.com/victorvengatesh/MotherCare-AI/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/victorvengatesh/MotherCare-AI/actions/workflows/ci-cd.yml)
+
 > A Tamil-and-English maternal-health decision-support prototype that combines symptom analysis, multi-agent routing, retrieval-augmented generation and pregnancy risk tracking.
 
 > **Safety notice:** MotherCare AI is an educational and research prototype. It does not diagnose, prescribe or replace licensed medical care. Urgent or severe symptoms should be handled by qualified clinicians or local emergency services.
@@ -83,8 +85,14 @@ The repository also contains historical implementation reports produced during d
 git clone https://github.com/victorvengatesh/MotherCare-AI.git
 cd MotherCare-AI
 
-cp backend/.env.example backend/.env
-# Add only the environment values required for the features you want to run.
+cp production.env.example .env
+# Replace every CHANGE_ME / replace_this value before continuing.
+
+# Linux/macOS: generate local development TLS files
+./scripts/generate_certs.sh
+
+# Windows PowerShell alternative
+# .\scripts\generate_certs.ps1
 
 docker compose up --build
 ```
@@ -109,6 +117,8 @@ python -m venv .venv
 source .venv/bin/activate
 
 pip install -r requirements.txt
+cp .env.example .env
+# Replace the required secret placeholders in .env.
 python -m uvicorn app.main:app --reload
 ```
 

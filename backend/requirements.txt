@@ -8,8 +8,9 @@ python-dotenv==1.0.1
 Pillow==10.2.0
 python-magic==0.4.27; sys_platform != 'win32'
 python-magic-bin==0.4.14; sys_platform == 'win32'
-torch>=2.0.0 --index-url https://download.pytorch.org/whl/cpu
-torchvision>=0.15.0 --index-url https://download.pytorch.org/whl/cpu
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.13.0+cpu
+torchvision==0.28.0+cpu
 passlib>=1.7.4
 PyJWT==2.8.0
 sqlalchemy==2.0.20

@@ -40,9 +40,15 @@ data/samples/*
 .DS_Store
 Thumbs.db
 
+# Locally generated TLS material
+nginx/certs/*.crt
+nginx/certs/*.key
+!nginx/certs/.gitkeep
+
 # Databases — never commit real patient data
 backend/*.db
 backend/**/*.db
+*.db-journal
 *.sqlite
 *.sqlite3
 
@@ -65,4 +71,3 @@ backend/uploads/*.pdf
 backend/uploads/*.png
 backend/uploads/*.jpg
 backend/uploads/*.jpeg
-
