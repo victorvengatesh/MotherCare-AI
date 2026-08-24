@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   listAppointments,
   requestAppointment,
@@ -46,10 +46,6 @@ export default function AppointmentsPage({ role = 'patient', doctorId = null }) 
   });
 
   useEffect(() => {
-    fetchAppointments();
-  }, [filterStatus]);
-
-  useEffect(() => {
     // Resolve user IDs to readable usernames
     if (role === 'doctor') {
       getPatients().then(res => {
@@ -70,7 +66,7 @@ export default function AppointmentsPage({ role = 'patient', doctorId = null }) 
     }
   }, [role]);
 
-  async function fetchAppointments() {
+  const fetchAppointments = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -81,7 +77,11 @@ export default function AppointmentsPage({ role = 'patient', doctorId = null }) 
     } finally {
       setLoading(false);
     }
-  }
+  }, [filterStatus]);
+
+  useEffect(() => {
+    fetchAppointments();
+  }, [fetchAppointments]);
 
   async function handleRequestAppointment(e) {
     e.preventDefault();

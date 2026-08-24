@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   getAdminUsers,
   getAdminAssignments,
@@ -39,7 +39,7 @@ export default function AdminDashboard() {
   const [filterRole, setFilterRole] = useState('');
 
   // Notifications helper
-  const triggerToast = (msg, isError = false) => {
+  const triggerToast = useCallback((msg, isError = false) => {
     if (isError) {
       setError(msg);
       setTimeout(() => setError(null), 5000);
@@ -47,10 +47,10 @@ export default function AdminDashboard() {
       setSuccess(msg);
       setTimeout(() => setSuccess(null), 4000);
     }
-  };
+  }, []);
 
   // ── Fetch Operations ───────────────────────────────────────────────────────
-  const fetchOverviewData = async () => {
+  const fetchOverviewData = useCallback(async () => {
     setLoading(true);
     try {
       const uRes = await getAdminUsers();
@@ -62,9 +62,9 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [triggerToast]);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
       const res = await getAdminUsers();
@@ -74,9 +74,9 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [triggerToast]);
 
-  const fetchAssignments = async () => {
+  const fetchAssignments = useCallback(async () => {
     setLoading(true);
     try {
       const res = await getAdminAssignments();
@@ -88,9 +88,9 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [triggerToast]);
 
-  const fetchRagDocs = async () => {
+  const fetchRagDocs = useCallback(async () => {
     setLoading(true);
     try {
       const res = await listRagDocuments();
@@ -100,9 +100,9 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [triggerToast]);
 
-  const fetchHealthAndReadiness = async () => {
+  const fetchHealthAndReadiness = useCallback(async () => {
     setLoading(true);
     try {
       const h = await checkHealth();
@@ -117,9 +117,9 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [triggerToast]);
 
-  const fetchAuditTrail = async () => {
+  const fetchAuditTrail = useCallback(async () => {
     setLoading(true);
     try {
       const res = await getAuditLogs();
@@ -129,7 +129,7 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [triggerToast]);
 
   // Trigger appropriate fetches based on active tab
   useEffect(() => {
@@ -139,7 +139,7 @@ export default function AdminDashboard() {
     if (activeSubTab === 'rag') fetchRagDocs();
     if (activeSubTab === 'health') fetchHealthAndReadiness();
     if (activeSubTab === 'audit') fetchAuditTrail();
-  }, [activeSubTab]);
+  }, [activeSubTab, fetchAssignments, fetchAuditTrail, fetchHealthAndReadiness, fetchOverviewData, fetchRagDocs, fetchUsers]);
 
   // ── Action Handlers ────────────────────────────────────────────────────────
   const handleAssign = async (e) => {

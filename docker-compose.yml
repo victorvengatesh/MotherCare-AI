@@ -1,5 +1,3 @@
-version: '3.9'
-
 # =============================================================================
 # MotherCare AI — Phase 6 Production Docker Compose Configuration
 # Services: postgres, redis, backend, frontend, nginx, adminer
@@ -14,7 +12,7 @@ services:
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-mothercare_db}
       - POSTGRES_USER=${POSTGRES_USER:-mothercare}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mothercare_secret}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -57,10 +55,10 @@ services:
     expose:
       - "8000"
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-mothercare}:${POSTGRES_PASSWORD:-mothercare_secret}@postgres:5432/${POSTGRES_DB:-mothercare_db}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-mothercare}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-mothercare_db}
       - REDIS_URL=redis://redis:6379/0
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - MC_SECRET_KEY=${MC_SECRET_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - MC_SECRET_KEY=${MC_SECRET_KEY:?MC_SECRET_KEY is required}
       - LOG_FORMAT=json
       - LOG_LEVEL=info
       - ALLOWED_ORIGINS=https://localhost,http://localhost
