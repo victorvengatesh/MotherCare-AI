@@ -35,7 +35,7 @@ jobs:
       - name: Run backend test suite
         env:
           GEMINI_API_KEY: "mock-key-for-ci"
-          MC_SECRET_KEY: "mock-secret-for-ci"
+          MC_SECRET_KEY: "mock-secret-for-ci-at-least-32-characters"
           DATABASE_URL: "sqlite:///:memory:"
         run: |
           cd backend
